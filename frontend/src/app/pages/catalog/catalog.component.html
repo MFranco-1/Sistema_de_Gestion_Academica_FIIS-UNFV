@@ -1,0 +1,81 @@
+<header class="page-header" id="planes">
+  <div class="breadcrumbs">Inicio / Gestión curricular</div>
+  <h1>Consulta de planes de estudio</h1>
+  <p>Seleccione una malla y después un semestre para consultar sus cursos.</p>
+</header>
+
+<section class="management-panel">
+  <div class="panel-title">Parámetros de consulta</div>
+  <div class="filter-flow">Malla <span>›</span> Semestre <span>›</span> Cursos <span>›</span> Detalle</div>
+  <div class="filters-row">
+    <div class="field plan-field">
+      <label>PLAN DE ESTUDIOS</label>
+      <select [(ngModel)]="selectedPlan" (change)="seleccionarPlan()">
+        <option *ngFor="let plan of planes" [ngValue]="plan.corr_pe">{{ plan.den_plan }}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>SEMESTRE ACADÉMICO</label>
+      <select [(ngModel)]="selectedSemester" (change)="seleccionarSemestre()" [disabled]="!selectedPlan || cargandoSemestres">
+        <option [ngValue]="undefined">Seleccione un semestre</option>
+        <option *ngFor="let semestre of semestres" [ngValue]="semestre">Semestre {{ semestreRomano(semestre) }}</option>
+      </select>
+    </div>
+    <div class="field search-field">
+      <label>CURSO O CÓDIGO</label>
+      <input [(ngModel)]="buscar" (keyup.enter)="consultar()" [disabled]="!selectedSemester" placeholder="Ingrese el nombre o código">
+    </div>
+    <button class="primary-button" (click)="consultar()" [disabled]="!selectedSemester">CONSULTAR</button>
+    <button class="secondary-button" (click)="limpiarFiltros()" [disabled]="!selectedSemester">LIMPIAR</button>
+  </div>
+</section>
+
+<section class="plan-summary" *ngIf="planSeleccionado as plan">
+  <div><span>PLAN</span><strong>{{ plan.anio_plan }}</strong></div>
+  <div><span>DENOMINACIÓN</span><strong>{{ plan.den_plan }}</strong></div>
+  <div><span>CONDICIÓN</span><strong class="plan-status" [class.old]="!plan.vigente">{{ plan.vigente ? 'VIGENTE' : 'MALLA ANTERIOR' }}</strong></div>
+  <div><span>CURSOS</span><strong>{{ plan.total_cursos }}</strong></div>
+  <div><span>CRÉDITOS</span><strong>{{ plan.total_creditos }}</strong></div>
+</section>
+
+<section class="semester-summary" *ngIf="resumen">
+  <div class="summary-title">Resumen del semestre {{ semestreRomano(resumen.semestre) }}</div>
+  <table>
+    <thead><tr><th>Cursos</th><th>Créditos</th><th>Horas teóricas</th><th>Horas prácticas</th><th>Obligatorios</th><th>Electivos</th><th>Con prerrequisito</th><th>Sin prerrequisito</th></tr></thead>
+    <tbody><tr><td>{{ resumen.total_cursos }}</td><td>{{ resumen.total_creditos }}</td><td>{{ resumen.horas_teoricas }}</td><td>{{ resumen.horas_practicas }}</td><td>{{ resumen.cursos_obligatorios }}</td><td>{{ resumen.cursos_electivos }}</td><td>{{ resumen.cursos_con_prerrequisitos }}</td><td>{{ resumen.cursos_sin_prerrequisitos }}</td></tr></tbody>
+  </table>
+</section>
+
+<div class="notice error" *ngIf="error">{{ error }}</div>
+
+<section class="results-panel" id="cursos">
+  <div class="results-header"><div><h2>Cursos y prerrequisitos</h2><p>Resultado de la malla y semestre seleccionados</p></div><span>{{ cursos.length }} registros</span></div>
+  <div class="selection-help" *ngIf="!selectedSemester">Seleccione un semestre para cargar los cursos desde la base de datos.</div>
+  <div class="loading" *ngIf="cargando">Consultando la base de datos...</div>
+  <app-course-table *ngIf="selectedSemester && !cargando" [cursos]="cursos" (verDetalle)="verDetalle($event)"></app-course-table>
+</section>
+
+<section class="course-detail" *ngIf="cursoDetalle as detalle">
+  <div class="detail-heading">
+    <div><span>DETALLE DEL CURSO</span><h2>{{ detalle.cod_curso }} · {{ detalle.den_curso }}</h2></div>
+    <button type="button" (click)="cerrarDetalle()">Cerrar</button>
+  </div>
+  <div class="detail-grid">
+    <div><span>Malla</span><strong>{{ detalle.den_plan }}</strong></div>
+    <div><span>Semestre</span><strong>{{ semestreRomano(detalle.semestre) }}</strong></div>
+    <div><span>Créditos</span><strong>{{ detalle.cred }}</strong></div>
+    <div><span>Horas teóricas</span><strong>{{ detalle.ht }}</strong></div>
+    <div><span>Horas prácticas</span><strong>{{ detalle.hp }}</strong></div>
+    <div><span>Tipo</span><strong>{{ detalle.tipo_curso }}</strong></div>
+  </div>
+  <div class="relations-grid">
+    <div><h3>Prerrequisitos</h3><p *ngIf="!detalle.prerrequisitos.length">Ninguno</p><ul><li *ngFor="let curso of detalle.prerrequisitos"><strong>{{ curso.cod_curso }}</strong> · {{ curso.den_curso }} (semestre {{ semestreRomano(curso.semestre) }})</li></ul></div>
+    <div><h3>Cursos que dependen de él</h3><p *ngIf="!detalle.cursos_dependientes.length">Ninguno</p><ul><li *ngFor="let curso of detalle.cursos_dependientes"><strong>{{ curso.cod_curso }}</strong> · {{ curso.den_curso }} (semestre {{ semestreRomano(curso.semestre) }})</li></ul></div>
+  </div>
+</section>
+
+<section class="results-panel" id="programacion">
+  <div class="results-header schedule-header"><div><h2>Programación académica</h2><p>Horario semanal por malla, período, semestre y sección</p></div><div class="period-control"><label>PERÍODO</label><select [(ngModel)]="selectedPeriodo" (change)="cargarProgramacion()"><option *ngFor="let periodo of periodos" [ngValue]="periodo.cod_periodo">{{ periodo.den_periodo }}</option></select></div></div>
+  <div class="schedule-table-wrap" *ngIf="programacion.length; else sinHorario"><table class="schedule-table"><thead><tr><th>Día</th><th>Horario</th><th>Código</th><th>Curso</th><th>Semestre</th><th>Sección</th><th>Sesión</th><th>Aula</th></tr></thead><tbody><tr *ngFor="let item of programacion"><td><strong>{{ item.dia_semana }}</strong></td><td>{{ hora(item.hora_inicio) }} – {{ hora(item.hora_fin) }}</td><td class="code">{{ item.cod_curso }}</td><td>{{ item.den_curso }}</td><td>{{ semestreRomano(item.semestre_corr) }}</td><td>{{ item.cod_seccion }}</td><td><span class="session-badge">{{ tipoSesion(item.tipo_sesion) }}</span></td><td>{{ item.aula }}</td></tr></tbody></table></div>
+  <ng-template #sinHorario><div class="empty-schedule">{{ selectedSemester ? 'No existe una programación registrada para la combinación seleccionada.' : 'Seleccione una malla y un semestre para consultar la programación académica.' }}</div></ng-template>
+</section>

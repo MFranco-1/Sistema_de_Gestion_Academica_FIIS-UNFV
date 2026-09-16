@@ -1,0 +1,16 @@
+.sidebar { display:flex; flex-direction:column; height:100%; background:var(--unfv-maroon); color:#fff; }
+.institution { display:flex; align-items:center; justify-content:center; padding:14px 15px; border-bottom:1px solid rgba(255,255,255,.18); }
+.institution img { display:block; width:100%; height:auto; max-height:78px; object-fit:contain; }
+.institution div { display:flex; flex-direction:column; min-width:0; }
+.institution strong { font-family:Georgia,serif; font-size:24px; line-height:1; letter-spacing:1px; }
+.institution span { margin-top:6px; font-size:9px; line-height:1.35; text-transform:uppercase; letter-spacing:.25px; opacity:.88; }
+.system-name { padding:15px 18px; background:rgba(0,0,0,.12); border-bottom:3px solid var(--unfv-gold); font-size:12px; font-weight:700; letter-spacing:.25px; }
+.menu { display:flex; flex-direction:column; padding:19px 12px; flex:1; }
+.menu-label { padding:0 10px 8px; color:#e7c981; font-size:9px; font-weight:700; letter-spacing:.8px; }
+.menu-label.second { margin-top:22px; }
+.menu-item { display:flex; align-items:center; gap:12px; min-height:44px; padding:9px 11px; border-left:3px solid transparent; color:rgba(255,255,255,.86); text-decoration:none; font-size:12px; line-height:1.25; }
+.menu-item:hover { color:#fff; background:rgba(255,255,255,.09); border-left-color:#d5aa49; }
+.menu-item.active { color:#fff; background:rgba(255,255,255,.13); border-left-color:var(--unfv-gold); font-weight:700; }
+.menu-item .material-icons-outlined { width:22px; color:#e9d39d; font-size:19px; }
+.contact { display:flex; flex-direction:column; gap:4px; padding:15px 18px 18px; background:rgba(0,0,0,.16); color:rgba(255,255,255,.72); font-size:9px; line-height:1.3; }
+.contact strong { color:#fff; font-size:10px; }

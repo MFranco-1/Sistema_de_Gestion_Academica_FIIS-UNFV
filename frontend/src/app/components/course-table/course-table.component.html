@@ -1,0 +1,22 @@
+<div class="table-container">
+  <div class="table-scroll">
+    <table class="course-table">
+      <thead>
+        <tr><th>Código</th><th>Curso</th><th>Semestre</th><th>Tipo</th><th>Créditos</th><th>Horas T/P</th><th>Prerrequisitos</th><th>Acción</th></tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let curso of cursos">
+          <td class="course-code">{{ curso.cod_curso }}</td>
+          <td class="course-name">{{ curso.den_curso }}</td>
+          <td><span class="semester-chip">{{ getRomanSemester(curso.semestre) }}</span></td>
+          <td>{{ curso.tipo_curso }}</td>
+          <td>{{ curso.cred }}</td>
+          <td>{{ curso.ht }} / {{ curso.hp }}</td>
+          <td class="prereqs">{{ curso.prerrequisitos_nombres }}</td>
+          <td><button class="detail-button" type="button" (click)="verDetalle.emit(curso)">Ver detalle</button></td>
+        </tr>
+        <tr *ngIf="cursos.length === 0"><td colspan="8" class="empty-state">No se encontraron cursos con los filtros seleccionados.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>

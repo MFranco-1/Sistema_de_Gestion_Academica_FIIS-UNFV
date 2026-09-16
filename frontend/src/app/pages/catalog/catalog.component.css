@@ -1,0 +1,63 @@
+.page-header { margin-bottom:20px; border-bottom:1px solid var(--border-color); padding-bottom:16px; scroll-margin-top:78px; }
+.breadcrumbs { color:#8a5b00; font-size:12px; margin-bottom:9px; }
+.page-header h1 { margin:0 0 5px; color:var(--unfv-maroon); font-family:Georgia,serif; font-size:29px; font-weight:600; }
+.page-header p { color:var(--text-secondary); font-size:14px; margin:0; }
+.management-panel,.results-panel { background:#fff; border:1px solid var(--border-color); margin-bottom:22px; scroll-margin-top:78px; }
+.panel-title { background:#f4f1ee; border-bottom:1px solid var(--border-color); border-left:4px solid var(--unfv-maroon); padding:11px 15px; color:#4c1f25; font-size:13px; font-weight:700; }
+.filters-row { display:grid; grid-template-columns:1.35fr .8fr 1fr auto auto; gap:14px; align-items:end; padding:18px; }
+.field { display:flex; flex-direction:column; gap:7px; min-width:0; }
+.field label,.period-control label { color:#514b4b; font-size:10px; font-weight:700; letter-spacing:.5px; }
+.field select,.field input,.period-control select { width:100%; height:40px; background:#fff; border-radius:3px; }
+.primary-button,.secondary-button { height:40px; padding:0 17px; border-radius:3px; font-size:11px; font-weight:700; }
+.primary-button { color:#fff; background:var(--unfv-maroon); }
+.primary-button:hover { background:var(--unfv-maroon-dark); }
+.secondary-button { color:#4c4545; background:#eeeae7; border:1px solid #d6cfca; }
+.primary-button:disabled,.secondary-button:disabled { cursor:not-allowed; opacity:.55; }
+.filter-flow { padding:10px 18px 0; color:#6b6262; font-size:11px; font-weight:700; letter-spacing:.3px; }
+.filter-flow span { padding:0 7px; color:var(--unfv-gold); }
+.plan-summary { display:grid; grid-template-columns:.6fr 2fr 1fr .65fr .65fr; background:#fff; border:1px solid var(--border-color); border-top:3px solid var(--unfv-gold); margin-bottom:22px; }
+.plan-summary div { display:flex; flex-direction:column; gap:5px; padding:13px 15px; border-right:1px solid #ece7e4; }
+.plan-summary div:last-child { border-right:0; }
+.plan-summary span { color:#756e6e; font-size:9px; font-weight:700; letter-spacing:.5px; }
+.plan-summary strong { color:#382f2f; font-size:13px; }
+.plan-status { width:max-content; color:#176b49 !important; background:#e8f4ee; padding:3px 7px; font-size:10px !important; }
+.plan-status.old { color:#8a5b00 !important; background:#fff3d7; }
+.results-header { display:flex; justify-content:space-between; align-items:center; padding:14px 17px; border-bottom:3px solid var(--unfv-maroon); }
+.results-header h2 { margin:0 0 3px; color:#372a2a; font-size:17px; }
+.results-header p { margin:0; color:var(--text-secondary); font-size:12px; }
+.results-header>span { color:#655d5d; font-size:12px; }
+.loading,.empty-schedule { padding:29px; text-align:center; color:var(--text-secondary); }
+.notice.error { background:#fff1f1; border:1px solid #e9c2c2; color:#9d2525; padding:12px; margin-bottom:18px; }
+.selection-help { padding:30px; color:var(--text-secondary); text-align:center; }
+.semester-summary { margin-bottom:22px; background:#fff; border:1px solid var(--border-color); border-top:3px solid var(--unfv-maroon); overflow-x:auto; }
+.summary-title { padding:10px 14px; color:#fff; background:var(--unfv-maroon); font-size:12px; font-weight:700; }
+.semester-summary table { width:100%; border-collapse:collapse; text-align:center; }
+.semester-summary th { padding:9px; color:#5b5151; background:#f4f1ee; border-right:1px solid #ddd6d2; font-size:9px; text-transform:uppercase; }
+.semester-summary td { padding:11px; border-right:1px solid #ece7e4; color:#382f2f; font-size:16px; font-weight:700; }
+.course-detail { margin-bottom:22px; background:#fff; border:1px solid var(--border-color); border-top:4px solid var(--unfv-gold); }
+.detail-heading { display:flex; justify-content:space-between; align-items:center; padding:16px 18px; color:#fff; background:var(--unfv-maroon); }
+.detail-heading span { color:#ead59f; font-size:9px; font-weight:700; letter-spacing:.7px; }
+.detail-heading h2 { margin-top:4px; font-family:Georgia,serif; font-size:19px; }
+.detail-heading button { padding:7px 11px; color:#fff; background:transparent; border:1px solid rgba(255,255,255,.65); border-radius:3px; }
+.detail-grid { display:grid; grid-template-columns:2fr repeat(5,1fr); border-bottom:1px solid var(--border-color); }
+.detail-grid div { display:flex; flex-direction:column; gap:5px; padding:13px 15px; border-right:1px solid #ece7e4; }
+.detail-grid span { color:#756e6e; font-size:9px; font-weight:700; text-transform:uppercase; }
+.detail-grid strong { font-size:12px; }
+.relations-grid { display:grid; grid-template-columns:1fr 1fr; }
+.relations-grid>div { padding:16px 18px; border-right:1px solid var(--border-color); }
+.relations-grid h3 { margin-bottom:9px; color:var(--unfv-maroon); font-size:13px; }
+.relations-grid p,.relations-grid li { color:#5c5454; font-size:12px; line-height:1.6; }
+.relations-grid ul { padding-left:18px; }
+.schedule-header { align-items:flex-end; }
+.period-control { display:flex; align-items:center; gap:9px; }
+.period-control select { min-width:230px; }
+.schedule-table-wrap { overflow-x:auto; }
+.schedule-table { width:100%; border-collapse:collapse; font-size:12px; }
+.schedule-table th { padding:11px 13px; background:#f2efed; color:#4b3f3f; text-align:left; text-transform:uppercase; font-size:10px; letter-spacing:.4px; border-bottom:1px solid #d8d1cd; }
+.schedule-table td { padding:12px 13px; border-bottom:1px solid #ece7e4; color:#433d3d; }
+.schedule-table tr:nth-child(even) { background:#fcfbfa; }
+.schedule-table tr:hover { background:#fff8e9; }
+.code { color:var(--unfv-maroon) !important; font-weight:700; }
+.session-badge { color:#6d252e; background:#f5e9ea; border:1px solid #e2c6c9; padding:3px 7px; font-size:10px; font-weight:700; }
+@media(max-width:1120px){.filters-row{grid-template-columns:1fr 1fr}.plan-summary{grid-template-columns:1fr 1fr 1fr}.plan-summary div{border-bottom:1px solid #ece7e4}.detail-grid{grid-template-columns:1fr 1fr 1fr}}
+@media(max-width:680px){.filters-row,.plan-summary,.detail-grid,.relations-grid{grid-template-columns:1fr}.schedule-header{align-items:flex-start;gap:12px}.period-control{width:100%;flex-direction:column;align-items:flex-start}.period-control select{min-width:0;width:100%}}

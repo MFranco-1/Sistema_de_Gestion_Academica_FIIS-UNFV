@@ -1,0 +1,10 @@
+.topbar { display:flex; justify-content:space-between; align-items:center; height:100%; padding:0 28px; }
+.school { display:flex; gap:11px; align-items:center; color:#4c292d; }
+.school .material-icons-outlined { color:var(--unfv-maroon); font-size:25px; }
+.school div { display:flex; flex-direction:column; gap:2px; }
+.school strong { font-family:Georgia,serif; font-size:15px; font-weight:600; }
+.school span { color:#766e6e; font-size:10px; }
+.institutional-links { display:flex; gap:19px; }
+.institutional-links a { color:#6c3037; font-size:11px; font-weight:600; text-decoration:none; }
+.institutional-links a:hover { text-decoration:underline; }
+@media(max-width:760px){.school span,.institutional-links{display:none}.topbar{padding:0 18px}}
