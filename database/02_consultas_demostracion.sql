@@ -99,3 +99,12 @@ JOIN curso AS c
 WHERE e.cod_estudiante = '20210001'
   AND o.cod_periodo = '2026-V' AND o.activo = TRUE
 ORDER BY c.semestre, c.cod_curso;
+
+-- 11. Usuarios y perfiles asignados.
+SELECT u.nombre_usuario, u.nombre_mostrar, u.cod_estudiante, u.activo,
+       STRING_AGG(p.nombre, ', ' ORDER BY p.nombre) AS perfiles
+FROM usuario AS u
+JOIN usuario_perfil AS up ON up.id_usuario = u.id_usuario
+JOIN perfil AS p ON p.id_perfil = up.id_perfil
+GROUP BY u.id_usuario
+ORDER BY u.nombre_mostrar;

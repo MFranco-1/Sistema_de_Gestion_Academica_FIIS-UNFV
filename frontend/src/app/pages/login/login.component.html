@@ -1,0 +1,25 @@
+<main class="login-page">
+  <section class="brand-panel">
+    <div class="brand-content">
+      <img src="assets/branding/logo_fiis.png" alt="Facultad de Ingeniería Industrial y de Sistemas - UNFV">
+      <div class="gold-line"></div>
+      <h1>Sistema de Gestión Académica</h1>
+      <p>Facultad de Ingeniería Industrial y de Sistemas</p>
+      <span>Universidad Nacional Federico Villarreal</span>
+    </div>
+  </section>
+  <section class="access-panel">
+    <form class="login-card" (ngSubmit)="ingresar()">
+      <div class="university-mark"><span>UNFV</span><small>Acceso institucional</small></div>
+      <h2>Bienvenido</h2>
+      <p class="intro">Ingrese sus credenciales para acceder al sistema académico.</p>
+      <div class="error" *ngIf="error"><span class="material-icons-outlined">error_outline</span>{{ error }}</div>
+      <label>USUARIO INSTITUCIONAL</label>
+      <div class="input-wrap"><span class="material-icons-outlined">person</span><input name="usuario" [(ngModel)]="nombreUsuario" autocomplete="username" required autofocus></div>
+      <label>CONTRASEÑA</label>
+      <div class="input-wrap"><span class="material-icons-outlined">lock</span><input name="clave" [(ngModel)]="clave" [type]="mostrarClave ? 'text' : 'password'" autocomplete="current-password" required><button type="button" (click)="mostrarClave = !mostrarClave" [attr.aria-label]="mostrarClave ? 'Ocultar contraseña' : 'Mostrar contraseña'"><span class="material-icons-outlined">{{ mostrarClave ? 'visibility_off' : 'visibility' }}</span></button></div>
+      <button class="submit" type="submit" [disabled]="cargando || !nombreUsuario || !clave">{{ cargando ? 'INGRESANDO...' : 'INGRESAR AL SISTEMA' }}</button>
+      <p class="help">Si tiene problemas con su acceso, comuníquese con la administración académica.</p>
+    </form>
+  </section>
+</main>

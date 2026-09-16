@@ -204,6 +204,31 @@ export interface MatriculaResumen {
   detalles: MatriculaDetalle[];
 }
 
+export interface UsuarioAdministracion {
+  id_usuario: number;
+  nombre_usuario: string;
+  nombre_mostrar: string;
+  cod_estudiante?: string;
+  perfiles: ('ADMINISTRADOR' | 'ESTUDIANTE')[];
+  activo: boolean;
+}
+
+export interface UsuarioPayload {
+  nombre_usuario?: string;
+  clave?: string;
+  nombre_mostrar: string;
+  cod_estudiante?: string;
+  perfiles: string[];
+  activo: boolean;
+}
+
+export interface PerfilAdministracion {
+  id_perfil: number;
+  codigo: 'ADMINISTRADOR' | 'ESTUDIANTE';
+  nombre: string;
+  total_usuarios: number;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private apiUrl = environment.apiUrl;
@@ -345,5 +370,33 @@ export class ApiService {
       `${this.apiUrl}/matriculas/${idMatricula}/ofertas/${idOferta}/resultado`,
       { nota_final: notaFinal, resultado }
     );
+  }
+
+  getMiEstudiante(): Observable<Estudiante> {
+    return this.http.get<Estudiante>(`${this.apiUrl}/estudiantes/me`);
+  }
+
+  getUsuarios(): Observable<UsuarioAdministracion[]> {
+    return this.http.get<UsuarioAdministracion[]>(`${this.apiUrl}/usuarios/`);
+  }
+
+  crearUsuario(datos: UsuarioPayload): Observable<UsuarioAdministracion> {
+    return this.http.post<UsuarioAdministracion>(`${this.apiUrl}/usuarios/`, datos);
+  }
+
+  editarUsuario(id: number, datos: UsuarioPayload): Observable<UsuarioAdministracion> {
+    return this.http.put<UsuarioAdministracion>(`${this.apiUrl}/usuarios/${id}`, datos);
+  }
+
+  eliminarUsuario(id: number): Observable<Mensaje> {
+    return this.http.delete<Mensaje>(`${this.apiUrl}/usuarios/${id}`);
+  }
+
+  getPerfiles(): Observable<PerfilAdministracion[]> {
+    return this.http.get<PerfilAdministracion[]>(`${this.apiUrl}/perfiles/`);
+  }
+
+  editarPerfil(id: number, nombre: string): Observable<PerfilAdministracion> {
+    return this.http.put<PerfilAdministracion>(`${this.apiUrl}/perfiles/${id}`, { nombre });
   }
 }

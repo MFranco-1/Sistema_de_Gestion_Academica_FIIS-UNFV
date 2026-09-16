@@ -285,3 +285,35 @@ class MatriculaDetalle(Base):
             name="ck_detalle_resultado",
         ),
     )
+
+
+class Perfil(Base):
+    __tablename__ = "perfil"
+    id_perfil = Column(Integer, primary_key=True, autoincrement=True)
+    codigo = Column(String(20), nullable=False, unique=True)
+    nombre = Column(String(50), nullable=False, unique=True)
+    usuarios = relationship("Usuario", secondary="usuario_perfil", back_populates="perfiles")
+
+
+class Usuario(Base):
+    __tablename__ = "usuario"
+    id_usuario = Column(Integer, primary_key=True, autoincrement=True)
+    nombre_usuario = Column(String(60), nullable=False, unique=True)
+    clave_hash = Column(String(255), nullable=False)
+    nombre_mostrar = Column(String(160), nullable=False)
+    cod_estudiante = Column(
+        String(12), ForeignKey("estudiante.cod_estudiante", ondelete="SET NULL"),
+        nullable=True, unique=True,
+    )
+    activo = Column(Boolean, nullable=False, default=True)
+    perfiles = relationship("Perfil", secondary="usuario_perfil", back_populates="usuarios")
+
+
+class UsuarioPerfil(Base):
+    __tablename__ = "usuario_perfil"
+    id_usuario = Column(
+        Integer, ForeignKey("usuario.id_usuario", ondelete="CASCADE"), primary_key=True,
+    )
+    id_perfil = Column(
+        Integer, ForeignKey("perfil.id_perfil", ondelete="RESTRICT"), primary_key=True,
+    )

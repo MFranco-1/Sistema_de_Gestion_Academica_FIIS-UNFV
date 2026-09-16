@@ -1,6 +1,6 @@
 # Diccionario de datos
 
-El modelo contiene catorce tablas. No existe `plan_semestre`: los semestres disponibles se obtienen con `SELECT DISTINCT curso.semestre` para cada malla.
+El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres disponibles se obtienen con `SELECT DISTINCT curso.semestre` para cada malla.
 
 | Tabla | Propósito | Clave primaria | Reglas principales |
 |---|---|---|---|
@@ -18,10 +18,13 @@ El modelo contiene catorce tablas. No existe `plan_semestre`: los semestres disp
 | `oferta_curso` | Cursos abiertos por período, malla y sección. | `id_oferta` | Una sección no se repite en el mismo período; vacantes positivas. |
 | `matricula` | Cabecera de matrícula por estudiante y período. | `id_matricula` | Una matrícula por estudiante y período; conserva la malla y ciclo utilizados. |
 | `matricula_detalle` | Cursos y resultados de una matrícula. | `id_matricula, id_oferta` | Nota 0–20; resultado matriculado, aprobado, desaprobado o retirado. |
+| `perfil` | Catálogo de perfiles de acceso. | `id_perfil` | Código y nombre únicos; incluye Administrador y Estudiante. |
+| `usuario` | Credenciales y vínculo opcional con un estudiante. | `id_usuario` | Nombre de usuario único, contraseña con hash y un estudiante por cuenta. |
+| `usuario_perfil` | Perfiles asignados a cada usuario. | `id_usuario, id_perfil` | Permite que una cuenta tenga uno o varios perfiles. |
 
 ## Integridad transaccional
 
-Las operaciones de mantenimiento confirman la transacción solamente después de validar todas las reglas. Ante una violación de integridad, la API ejecuta `ROLLBACK` y devuelve un mensaje HTTP 409 o 422 comprensible. La matrícula exige que la oferta pertenezca a la malla, esté abierta en el período, tenga vacantes y que todos los prerrequisitos estén aprobados. Un curso aprobado no puede volver a matricularse.
+Las operaciones de mantenimiento confirman la transacción solamente después de validar todas las reglas. Ante una violación de integridad, la API ejecuta `ROLLBACK` y devuelve un mensaje HTTP 409 o 422 comprensible. La matrícula exige que la oferta pertenezca a la malla, esté abierta en el período, tenga vacantes y que todos los prerrequisitos estén aprobados. Un curso aprobado no puede volver a matricularse. Las contraseñas no se almacenan en texto: se derivan con PBKDF2-SHA256 y sal aleatoria.
 
 ## Índices de apoyo
 

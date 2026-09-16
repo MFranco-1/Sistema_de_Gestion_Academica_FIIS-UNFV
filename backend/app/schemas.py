@@ -337,3 +337,77 @@ class MatriculaResumen(BaseModel):
 
 class Mensaje(BaseModel):
     mensaje: str
+
+
+class LoginRequest(BaseModel):
+    nombre_usuario: str = Field(min_length=1, max_length=60)
+    clave: str = Field(min_length=1, max_length=128)
+
+
+class UsuarioSesion(BaseModel):
+    id_usuario: int
+    nombre_usuario: str
+    nombre_mostrar: str
+    cod_estudiante: Optional[str] = None
+    perfil_activo: str
+    perfiles: list[str]
+    nombres_perfiles: dict[str, str]
+
+
+class LoginResponse(BaseModel):
+    token: str
+    usuario: UsuarioSesion
+
+
+class CambioPerfil(BaseModel):
+    perfil: str
+
+    @field_validator("perfil")
+    @classmethod
+    def normalizar_perfil(cls, valor: str) -> str:
+        valor = valor.strip().upper()
+        if valor not in {"ADMINISTRADOR", "ESTUDIANTE"}:
+            raise ValueError("El perfil indicado no es válido.")
+        return valor
+
+
+class UsuarioCreate(BaseModel):
+    nombre_usuario: str = Field(min_length=3, max_length=60)
+    clave: str = Field(min_length=6, max_length=128)
+    nombre_mostrar: str = Field(min_length=3, max_length=160)
+    cod_estudiante: Optional[str] = Field(default=None, max_length=12)
+    perfiles: list[str] = Field(min_length=1)
+    activo: bool = True
+
+
+class UsuarioUpdate(BaseModel):
+    nombre_mostrar: str = Field(min_length=3, max_length=160)
+    cod_estudiante: Optional[str] = Field(default=None, max_length=12)
+    perfiles: list[str] = Field(min_length=1)
+    activo: bool = True
+    clave: Optional[str] = Field(default=None, min_length=6, max_length=128)
+
+
+class UsuarioAdministracion(BaseModel):
+    id_usuario: int
+    nombre_usuario: str
+    nombre_mostrar: str
+    cod_estudiante: Optional[str] = None
+    perfiles: list[str]
+    activo: bool
+
+
+class PerfilAdministracion(BaseModel):
+    id_perfil: int
+    codigo: str
+    nombre: str
+    total_usuarios: int
+
+
+class PerfilUpdate(BaseModel):
+    nombre: str = Field(min_length=3, max_length=50)
+
+    @field_validator("nombre")
+    @classmethod
+    def limpiar_nombre(cls, valor: str) -> str:
+        return valor.strip()

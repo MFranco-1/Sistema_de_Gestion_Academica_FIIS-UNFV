@@ -12,12 +12,14 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - CRUD de estudiantes y asignación de malla y ciclo académico.
 - Matrícula validada por oferta anual, período I/II/verano, historial y prerrequisitos.
 - Registro de notas y resultados para cursos aprobados, desaprobados o retirados.
+- Login institucional con perfiles Administrador y Estudiante, cambio de perfil dentro del panel y permisos por endpoint.
+- Administración separada de usuarios y perfiles, con activación de cuentas, vínculo con estudiantes y nombres de perfil editables.
 - Validación de duplicados, semestres, créditos, horas, precedencia académica y cruces de aula/sección.
 - Documentación interactiva de la API con Swagger.
 
 ## Modelo de datos
 
-El modelo mantiene catorce tablas:
+El modelo mantiene diecisiete tablas:
 
 1. `facultad`
 2. `escuela`
@@ -33,6 +35,9 @@ El modelo mantiene catorce tablas:
 12. `oferta_curso`
 13. `matricula`
 14. `matricula_detalle`
+15. `perfil`
+16. `usuario`
+17. `usuario_perfil`
 
 No existe una tabla `plan_semestre`. Los semestres de cada malla se obtienen con `SELECT DISTINCT curso.semestre`.
 
@@ -54,6 +59,8 @@ venv\Scripts\activate
 pip install -r requirements.txt
 $env:PGPASSWORD='tu_clave_local'
 $env:DATABASE_URL='postgresql+pg8000://postgres:tu_clave_local@localhost:5432/universidad_db'
+$env:AUTH_SECRET='una-clave-larga-y-privada'
+$env:ADMIN_PASSWORD='una-clave-segura'
 python init_db.py
 python seed_db.py
 uvicorn app.main:app --reload --port 8000
@@ -69,6 +76,10 @@ La conexión puede cambiarse sin modificar código:
 ```powershell
 $env:DATABASE_URL='postgresql+pg8000://usuario:clave@localhost:5432/base_prueba'
 ```
+
+En desarrollo, si no se configuran variables, la cuenta inicial es `admin` con contraseña `Admin123*`. En Render se deben definir `ADMIN_PASSWORD` y `AUTH_SECRET` con valores privados antes del primer arranque.
+
+Al registrar un estudiante, el sistema crea su cuenta con el código de estudiante como usuario y el DNI como contraseña temporal. El administrador puede cambiar la contraseña, activar o desactivar la cuenta y asignarle uno o ambos perfiles desde Mantenimiento académico.
 
 ### Frontend
 
@@ -100,6 +111,9 @@ Interfaz: `http://localhost:4200`.
 - `GET /horarios/?corr_pe=2&semestre=6&cod_periodo=2026-II`
 - `GET /programacion/?corr_pe=2&semestre=6&cod_periodo=2026-II`
 - `GET /docentes/`
+- `POST /auth/login`
+- `GET /auth/me`
+- `POST /auth/cambiar-perfil`
 - `GET /estudiantes/`
 - `GET /estudiantes/{codigo}/ofertas?cod_periodo=2026-I`
 - `GET /estudiantes/{codigo}/matriculas`
@@ -118,16 +132,23 @@ Interfaz: `http://localhost:4200`.
 - `DELETE /estudiantes/{codigo}`
 - `POST /matriculas/`
 - `PUT /matriculas/{id}/ofertas/{id_oferta}/resultado`
+- `GET /usuarios/`
+- `POST /usuarios/`
+- `PUT /usuarios/{id}`
+- `DELETE /usuarios/{id}`
+- `GET /perfiles/`
+- `PUT /perfiles/{id}`
 
 Las mutaciones usan transacciones. Los errores de validación se devuelven como HTTP 422 y los conflictos de integridad o cruces como HTTP 409.
 
 ## Scripts de base de datos
 
-- `database/01_esquema.sql`: definición física de las diez tablas, claves, restricciones e índices.
+- `database/01_esquema.sql`: definición física completa de las tablas, claves, restricciones, índices y perfiles.
 - `database/02_consultas_demostracion.sql`: semestres, detalle, dependencias, resumen y controles de horario/eliminación.
 - `database/03_diccionario_datos.md`: descripción de tablas y reglas de integridad.
-- `database/04_migracion_matricula.sql`: actualización no destructiva para una base existente.
+
+Solo existen dos archivos SQL: el esquema consolidado y las consultas demostrativas. Para bases existentes, SQLAlchemy crea de forma no destructiva las tablas de seguridad al iniciar el backend.
 
 ## Datos académicos incluidos
 
-Se conservan las mallas 2010 y 2019, sus cursos, créditos y prerrequisitos, la plana docente y el horario demostrativo. También se incluyen períodos 2024–2026, ofertas regulares por paridad de ciclo, ofertas de verano y un estudiante de demostración con un curso aprobado y otro desaprobado.
+Se conservan las mallas 2010 y 2019, sus cursos, créditos y prerrequisitos, la plana docente y el horario demostrativo. También se incluyen períodos 2024–2026, ofertas regulares por paridad de ciclo, ofertas de verano y estudiantes demostrativos distribuidos entre los ciclos I y X. El estudiante de sexto ciclo incluye un curso aprobado y otro desaprobado.

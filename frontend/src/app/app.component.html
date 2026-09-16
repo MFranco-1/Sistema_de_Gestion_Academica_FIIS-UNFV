@@ -1,4 +1,5 @@
-<div class="app-container">
+<router-outlet *ngIf="!auth.autenticado"></router-outlet>
+<div class="app-container" *ngIf="auth.autenticado">
   <div class="sidebar-container">
     <app-sidebar></app-sidebar>
   </div>

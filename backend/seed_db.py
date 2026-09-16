@@ -1,7 +1,7 @@
 import argparse
 from datetime import date, time
 
-from app import models
+from app import auth, models
 from app.database import Base, SessionLocal, engine
 
 
@@ -335,6 +335,7 @@ def insertar_estudiante_demo(db):
     )
     db.add(estudiante)
     db.flush()
+    auth.ensure_student_user(db, estudiante)
 
     historial = [
         ("2024-I", "P19-24", 15, "APROBADO"),
@@ -357,6 +358,27 @@ def insertar_estudiante_demo(db):
             nota_final=nota, resultado=resultado,
         ))
 
+    adicionales = [
+        ("20260001", "70000001", "Rojas Salazar, Andrea", 1),
+        ("20250002", "70000002", "Mendoza Ruiz, Diego", 2),
+        ("20250003", "70000003", "Castro Vega, Lucía", 3),
+        ("20240004", "70000004", "Navarro Flores, Martín", 4),
+        ("20240005", "70000005", "Quispe León, Valeria", 5),
+        ("20230007", "70000007", "Paredes Soto, Renato", 7),
+        ("20220008", "70000008", "Torres Campos, Daniela", 8),
+        ("20210009", "70000009", "Ramírez Peña, Sebastián", 9),
+        ("20200010", "70000010", "García Núñez, Camila", 10),
+    ]
+    for codigo, dni, nombre, ciclo in adicionales:
+        item = models.Estudiante(
+            cod_estudiante=codigo, dni=dni, apellidos_nombres=nombre,
+            correo=f"{codigo}@unfv.edu.pe", cod_fac=FACULTAD, cod_esc=ESCUELA,
+            corr_pe=2, ciclo_actual=ciclo, estado="ACTIVO",
+        )
+        db.add(item)
+        db.flush()
+        auth.ensure_student_user(db, item)
+
 
 def seed_data(reset=False):
     if reset:
@@ -364,6 +386,7 @@ def seed_data(reset=False):
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
     try:
+        auth.ensure_security_data(db)
         if db.query(models.PlanEstudio).first():
             print("La base ya contiene planes. Use: python seed_db.py --reset")
             return

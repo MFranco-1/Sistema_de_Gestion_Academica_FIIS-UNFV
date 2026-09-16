@@ -1,4 +1,14 @@
 <header class="topbar">
   <div class="school"><span class="material-icons-outlined">school</span><div><strong>Escuela Profesional de Ingeniería de Sistemas</strong><span>Facultad de Ingeniería Industrial y de Sistemas</span></div></div>
-  <div class="institutional-links"><a href="https://web.unfv.edu.pe/facultades/fiis/" target="_blank" rel="noopener">Portal FIIS</a><a href="https://www.unfv.edu.pe/" target="_blank" rel="noopener">Portal UNFV</a></div>
+  <div class="top-actions">
+    <div class="welcome"><small>Bienvenido</small><strong>{{ auth.usuario?.nombre_mostrar }}</strong></div>
+    <div class="profile-selector">
+      <button type="button" class="profile-button" (click)="menuAbierto = !menuAbierto"><span class="material-icons-outlined">account_circle</span><span><small>PERFIL ACTIVO</small>{{ auth.nombrePerfil(auth.usuario?.perfil_activo) }}</span><span class="material-icons-outlined arrow">expand_more</span></button>
+      <div class="profile-menu" *ngIf="menuAbierto">
+        <div class="menu-title">CAMBIAR PERFIL</div>
+        <button type="button" *ngFor="let perfil of auth.usuario?.perfiles" (click)="cambiarPerfil(perfil)" [class.active]="perfil === auth.usuario?.perfil_activo" [disabled]="cambiando"><span>{{ auth.nombrePerfil(perfil) }}</span><small *ngIf="perfil === auth.usuario?.perfil_activo">Activo</small></button>
+        <button type="button" class="logout" (click)="auth.logout()"><span>Cerrar sesión</span><span class="material-icons-outlined">logout</span></button>
+      </div>
+    </div>
+  </div>
 </header>

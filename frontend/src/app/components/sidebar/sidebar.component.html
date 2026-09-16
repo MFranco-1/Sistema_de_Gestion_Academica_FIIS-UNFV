@@ -1,17 +1,23 @@
 <aside class="sidebar">
-  <div class="institution">
-    <img src="assets/branding/logo_fiis.png" alt="Facultad de Ingeniería Industrial y de Sistemas - UNFV">
-  </div>
+  <div class="institution"><img src="assets/branding/logo_fiis.png" alt="Facultad de Ingeniería Industrial y de Sistemas - UNFV"></div>
   <div class="system-name">Sistema de Gestión Académica</div>
   <nav class="menu" aria-label="Menú principal">
-    <div class="menu-label">GESTIÓN CURRICULAR</div>
-    <a class="menu-item" routerLink="/catalog" fragment="planes"><span class="material-icons-outlined">account_balance</span>Planes de estudio</a>
-    <a class="menu-item" routerLink="/catalog" fragment="cursos"><span class="material-icons-outlined">menu_book</span>Cursos y prerrequisitos</a>
-    <a class="menu-item" routerLink="/catalog" fragment="programacion"><span class="material-icons-outlined">calendar_month</span>Programación académica</a>
-    <a class="menu-item" routerLink="/matricula" routerLinkActive="active"><span class="material-icons-outlined">how_to_reg</span>Estudiantes y matrícula</a>
-    <div class="menu-label second">INFORMACIÓN ACADÉMICA</div>
-    <a class="menu-item" routerLink="/docentes" routerLinkActive="active"><span class="material-icons-outlined">groups</span>Plana docente</a>
-    <a class="menu-item" routerLink="/mantenimiento" routerLinkActive="active"><span class="material-icons-outlined">edit_calendar</span>Mantenimiento académico</a>
+    <ng-container *ngIf="auth.esAdministrador">
+      <div class="menu-label">GESTIÓN CURRICULAR</div>
+      <a class="menu-item" routerLink="/catalog" fragment="planes"><span class="material-icons-outlined">account_balance</span>Planes de estudio</a>
+      <a class="menu-item" routerLink="/catalog" fragment="cursos"><span class="material-icons-outlined">menu_book</span>Cursos y prerrequisitos</a>
+      <a class="menu-item" routerLink="/catalog" fragment="programacion"><span class="material-icons-outlined">calendar_month</span>Programación académica</a>
+      <div class="menu-label second">ADMINISTRACIÓN</div>
+      <a class="menu-item" routerLink="/docentes" routerLinkActive="active"><span class="material-icons-outlined">groups</span>Plana docente</a>
+      <a class="menu-item" routerLink="/mantenimiento" routerLinkActive="active"><span class="material-icons-outlined">settings</span>Mantenimiento académico</a>
+      <a class="menu-item" routerLink="/mantenimiento" fragment="estudiantes"><span class="material-icons-outlined">school</span>Estudiantes</a>
+      <a class="menu-item" routerLink="/admin/usuarios" routerLinkActive="active"><span class="material-icons-outlined">manage_accounts</span>Usuarios</a>
+      <a class="menu-item" routerLink="/admin/perfiles" routerLinkActive="active"><span class="material-icons-outlined">admin_panel_settings</span>Perfiles</a>
+    </ng-container>
+    <ng-container *ngIf="auth.esEstudiante">
+      <div class="menu-label">PORTAL DEL ESTUDIANTE</div>
+      <a class="menu-item" routerLink="/matricula" routerLinkActive="active"><span class="material-icons-outlined">how_to_reg</span>Mi matrícula</a>
+    </ng-container>
   </nav>
   <div class="contact"><strong>FIIS – UNFV</strong><span>Av. Óscar R. Benavides N.° 450</span><span>Lima, Perú</span></div>
 </aside>

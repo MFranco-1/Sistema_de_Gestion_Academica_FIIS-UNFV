@@ -2,7 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit } from '@angular/core';
 import {
   ApiService, Curso, CursoDetalle, CursoPayload, HorarioDisponible, PeriodoAcademico,
-  PlanEstudio, ProgramacionHorario, SesionLocator, SesionPayload
+  PlanEstudio, ProgramacionHorario, SesionLocator, SesionPayload, Estudiante,
+  EstudiantePayload
 } from '../../services/api.service';
 
 @Component({
@@ -27,6 +28,9 @@ export class MantenimientoComponent implements OnInit {
   sesionOriginal?: SesionLocator;
   mensaje = '';
   error = '';
+  estudiantes: Estudiante[] = [];
+  editandoEstudiante = '';
+  estudianteForm: EstudiantePayload = this.nuevoEstudiante();
 
   cursoForm: CursoPayload = this.nuevoCurso();
   sesionForm: SesionPayload = this.nuevaSesion();
@@ -34,6 +38,7 @@ export class MantenimientoComponent implements OnInit {
   constructor(private api: ApiService) {}
 
   ngOnInit(): void {
+    this.cargarEstudiantes();
     this.api.getPeriodos().subscribe(data => {
       this.periodos = data;
       this.selectedPeriodo = data.find(p => p.activo)?.cod_periodo ?? data[0]?.cod_periodo;
@@ -259,12 +264,46 @@ export class MantenimientoComponent implements OnInit {
     return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][numero - 1];
   }
 
+  cargarEstudiantes(): void {
+    this.api.getEstudiantes().subscribe({ next: data => this.estudiantes = data, error: error => this.mostrarError(error) });
+  }
+
+  guardarEstudiante(): void {
+    this.limpiarMensajes();
+    const operacion = this.editandoEstudiante
+      ? this.api.editarEstudiante(this.editandoEstudiante, this.estudianteForm)
+      : this.api.crearEstudiante(this.estudianteForm);
+    operacion.subscribe({
+      next: () => {
+        this.mensaje = this.editandoEstudiante ? 'Estudiante actualizado correctamente.' : 'Estudiante y cuenta de acceso registrados correctamente.';
+        this.cancelarEstudiante(); this.cargarEstudiantes();
+      }, error: error => this.mostrarError(error)
+    });
+  }
+
+  editarEstudiante(estudiante: Estudiante): void {
+    this.editandoEstudiante = estudiante.cod_estudiante;
+    this.estudianteForm = { cod_estudiante: estudiante.cod_estudiante, dni: estudiante.dni, apellidos_nombres: estudiante.apellidos_nombres, correo: estudiante.correo, cod_fac: estudiante.cod_fac, cod_esc: estudiante.cod_esc, corr_pe: estudiante.corr_pe, ciclo_actual: estudiante.ciclo_actual, estado: estudiante.estado };
+  }
+
+  eliminarEstudiante(estudiante: Estudiante): void {
+    if (!confirm(`¿Eliminar al estudiante ${estudiante.cod_estudiante}?`)) return;
+    this.api.eliminarEstudiante(estudiante.cod_estudiante).subscribe({ next: data => { this.mensaje = data.mensaje; this.cargarEstudiantes(); }, error: error => this.mostrarError(error) });
+  }
+
+  cancelarEstudiante(): void { this.editandoEstudiante = ''; this.estudianteForm = this.nuevoEstudiante(); }
+
+
   private nuevoCurso(): CursoPayload {
     return { corr_pe: 0, cod_curso: '', den_curso: '', semestre: 1, ht: 0, hp: 0, cred: 1, tipo_curso: 'OBLIGATORIO' };
   }
 
   private nuevaSesion(): SesionPayload {
     return { id_horario: 0, semestre_corr: 1, cod_curso: '', cod_seccion: 'A', tipo_sesion: 'T', corr_pe: 0, dia_semana: 'LUNES', hora_inicio: '08:00', hora_fin: '09:00', aula: '' };
+  }
+
+  private nuevoEstudiante(): EstudiantePayload {
+    return { cod_estudiante: '', dni: '', apellidos_nombres: '', correo: '', cod_fac: 1, cod_esc: 1, corr_pe: 2, ciclo_actual: 1, estado: 'ACTIVO' };
   }
 
   private limpiarMensajes(): void { this.mensaje = ''; this.error = ''; }

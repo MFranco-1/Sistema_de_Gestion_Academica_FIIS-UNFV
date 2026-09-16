@@ -1,6 +1,6 @@
 import { NgModule } from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
-import { HttpClientModule } from '@angular/common/http';
+import { HTTP_INTERCEPTORS, HttpClientModule } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 
 import { AppRoutingModule } from './app-routing.module';
@@ -12,6 +12,10 @@ import { CourseTableComponent } from './components/course-table/course-table.com
 import { DocentesComponent } from './pages/docentes/docentes.component';
 import { MantenimientoComponent } from './pages/mantenimiento/mantenimiento.component';
 import { MatriculaComponent } from './pages/matricula/matricula.component';
+import { LoginComponent } from './pages/login/login.component';
+import { AuthInterceptor } from './services/auth.interceptor';
+import { UsuariosComponent } from './pages/usuarios/usuarios.component';
+import { PerfilesComponent } from './pages/perfiles/perfiles.component';
 
 @NgModule({
   declarations: [
@@ -22,7 +26,10 @@ import { MatriculaComponent } from './pages/matricula/matricula.component';
     CourseTableComponent,
     DocentesComponent,
     MantenimientoComponent,
-    MatriculaComponent
+    MatriculaComponent,
+    LoginComponent,
+    UsuariosComponent,
+    PerfilesComponent
   ],
   imports: [
     BrowserModule,
@@ -30,7 +37,7 @@ import { MatriculaComponent } from './pages/matricula/matricula.component';
     HttpClientModule,
     FormsModule
   ],
-  providers: [],
+  providers: [{ provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true }],
   bootstrap: [AppComponent]
 })
 export class AppModule { }
