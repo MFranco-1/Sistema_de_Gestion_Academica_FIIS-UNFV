@@ -202,7 +202,7 @@ class HorarioCurso(Base):
 
 class Estudiante(Base):
     __tablename__ = "estudiante"
-    cod_estudiante = Column(String(12), primary_key=True)
+    cod_estudiante = Column(String(10), primary_key=True)
     dni = Column(String(8), nullable=False, unique=True)
     apellidos_nombres = Column(String(160), nullable=False)
     correo = Column(String(120), nullable=False, unique=True)
@@ -219,6 +219,7 @@ class Estudiante(Base):
         ),
         CheckConstraint("ciclo_actual BETWEEN 1 AND 10", name="ck_estudiante_ciclo"),
         CheckConstraint("estado IN ('ACTIVO', 'EGRESADO', 'RETIRADO')", name="ck_estudiante_estado"),
+        CheckConstraint("cod_estudiante ~ '^[0-9]{10}$'", name="ck_estudiante_codigo"),
     )
 
 
@@ -250,7 +251,7 @@ class OfertaCurso(Base):
 class Matricula(Base):
     __tablename__ = "matricula"
     id_matricula = Column(Integer, primary_key=True, autoincrement=True)
-    cod_estudiante = Column(String(12), ForeignKey("estudiante.cod_estudiante"), nullable=False)
+    cod_estudiante = Column(String(10), ForeignKey("estudiante.cod_estudiante"), nullable=False)
     cod_periodo = Column(String(10), ForeignKey("periodo_academico.cod_periodo"), nullable=False)
     cod_fac = Column(Integer, nullable=False)
     cod_esc = Column(Integer, nullable=False)
@@ -292,6 +293,7 @@ class Perfil(Base):
     id_perfil = Column(Integer, primary_key=True, autoincrement=True)
     codigo = Column(String(20), nullable=False, unique=True)
     nombre = Column(String(50), nullable=False, unique=True)
+    permisos = Column(String(500), nullable=False, default="")
     usuarios = relationship("Usuario", secondary="usuario_perfil", back_populates="perfiles")
 
 
@@ -302,7 +304,7 @@ class Usuario(Base):
     clave_hash = Column(String(255), nullable=False)
     nombre_mostrar = Column(String(160), nullable=False)
     cod_estudiante = Column(
-        String(12), ForeignKey("estudiante.cod_estudiante", ondelete="SET NULL"),
+        String(10), ForeignKey("estudiante.cod_estudiante", ondelete="SET NULL"),
         nullable=True, unique=True,
     )
     activo = Column(Boolean, nullable=False, default=True)

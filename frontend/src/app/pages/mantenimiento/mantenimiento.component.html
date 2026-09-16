@@ -4,9 +4,9 @@
   <p>Administre la estructura académica, los estudiantes y las cuentas de acceso.</p>
 </header>
 
-<nav class="section-nav"><a href="#cursos">Cursos y horarios</a><a href="#estudiantes">Gestión de estudiantes</a></nav>
+<nav class="section-nav"><a *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')" href="#cursos">Cursos y horarios</a><a *ngIf="auth.puede('GESTION_ESTUDIANTES')" href="#estudiantes">Gestión de estudiantes</a></nav>
 
-<section class="selector-panel">
+<section class="selector-panel" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')">
   <div class="field"><label>MALLA</label><select [(ngModel)]="selectedPlan" (change)="cambiarPlan()"><option *ngFor="let plan of planes" [ngValue]="plan.corr_pe">{{ plan.den_plan }}</option></select></div>
   <div class="field"><label>SEMESTRE</label><select [(ngModel)]="selectedSemester" (change)="cambiarSemestre()"><option [ngValue]="undefined">Seleccione</option><option *ngFor="let semestre of semestres" [ngValue]="semestre">Semestre {{ semestreRomano(semestre) }}</option></select></div>
   <div class="field"><label>PERÍODO DE HORARIO</label><select [(ngModel)]="selectedPeriodo" (change)="cargarHorario()"><option *ngFor="let periodo of periodos" [ngValue]="periodo.cod_periodo">{{ periodo.den_periodo }}</option></select></div>
@@ -15,7 +15,7 @@
 <div class="notice success" *ngIf="mensaje">{{ mensaje }}</div>
 <div class="notice error" *ngIf="error">{{ error }}</div>
 
-<section class="maintenance-section" id="cursos">
+<section class="maintenance-section" id="cursos" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')">
   <div class="section-heading"><div><span>CURSOS</span><h2>{{ editandoCodigo ? 'Editar curso ' + editandoCodigo : 'Registrar curso' }}</h2></div></div>
   <form class="form-grid course-form" (ngSubmit)="guardarCurso()">
     <div class="field"><label>CÓDIGO</label><input name="codigo" [(ngModel)]="cursoForm.cod_curso" [disabled]="!!editandoCodigo" required maxlength="20"></div>
@@ -34,7 +34,7 @@
   </div>
 </section>
 
-<section class="maintenance-section" *ngIf="cursoSeleccionado">
+<section class="maintenance-section" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO') && cursoSeleccionado">
   <div class="section-heading"><div><span>PRERREQUISITOS</span><h2>{{ cursoSeleccionado.cod_curso }} · {{ cursoSeleccionado.den_curso }}</h2></div></div>
   <div class="prerequisite-editor">
     <div class="field"><label>CURSO DE SEMESTRE ANTERIOR</label><select [(ngModel)]="prerequisitoCodigo"><option value="">Seleccione un curso</option><option *ngFor="let curso of candidatosPrerequisito" [value]="curso.cod_curso">{{ curso.cod_curso }} · {{ curso.den_curso }} ({{ semestreRomano(curso.semestre) }})</option></select></div>
@@ -43,7 +43,7 @@
   <div class="relation-list" *ngIf="detalle"><div *ngFor="let requisito of detalle.prerrequisitos"><span><strong>{{ requisito.cod_curso }}</strong> · {{ requisito.den_curso }}</span><button class="danger" type="button" (click)="retirarPrerequisito(requisito.cod_curso)">Retirar</button></div><p *ngIf="!detalle.prerrequisitos.length">El curso no tiene prerrequisitos.</p></div>
 </section>
 
-<section class="maintenance-section">
+<section class="maintenance-section" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')">
   <div class="section-heading"><div><span>HORARIO</span><h2>{{ sesionOriginal ? 'Editar sesión' : 'Registrar sesión' }}</h2></div></div>
   <div class="availability" *ngIf="selectedSemester && !horarios.length">No existe una cabecera de horario para la malla, período y semestre seleccionados.</div>
   <form class="form-grid session-form" (ngSubmit)="guardarSesion()">
@@ -60,7 +60,7 @@
   <div class="table-wrap"><table><thead><tr><th>Día</th><th>Horario</th><th>Curso</th><th>Sección</th><th>Tipo</th><th>Aula</th><th>Acción</th></tr></thead><tbody><tr *ngFor="let sesion of sesiones"><td>{{ sesion.dia_semana }}</td><td>{{ sesion.hora_inicio.slice(0,5) }} – {{ sesion.hora_fin.slice(0,5) }}</td><td>{{ sesion.cod_curso }} · {{ sesion.den_curso }}</td><td>{{ sesion.cod_seccion }}</td><td>{{ sesion.tipo_sesion }}</td><td>{{ sesion.aula }}</td><td><button type="button" (click)="editarSesion(sesion)">Editar</button></td></tr><tr *ngIf="!sesiones.length"><td colspan="7" class="empty">No hay sesiones registradas para la selección actual.</td></tr></tbody></table></div>
 </section>
 
-<section class="maintenance-section" id="estudiantes">
+<section class="maintenance-section" id="estudiantes" *ngIf="auth.puede('GESTION_ESTUDIANTES')">
   <div class="section-heading"><div><span>ADMINISTRACIÓN</span><h2>{{ editandoEstudiante ? 'Editar estudiante' : 'Gestión de estudiantes' }}</h2></div></div>
   <div class="section-note">Al registrar un estudiante se crea automáticamente su acceso. El usuario inicial es su código y la contraseña temporal es su DNI.</div>
   <form class="form-grid student-form" (ngSubmit)="guardarEstudiante()">

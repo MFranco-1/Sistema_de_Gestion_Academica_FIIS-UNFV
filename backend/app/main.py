@@ -10,6 +10,10 @@ from app.database import SessionLocal, engine, get_db
 
 
 models.Base.metadata.create_all(bind=engine)
+with engine.begin() as migration_connection:
+    migration_connection.exec_driver_sql(
+        "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
+    )
 with SessionLocal() as startup_db:
     auth.ensure_security_data(startup_db)
 
@@ -48,6 +52,10 @@ def _sesion_dict(usuario, perfil_activo: str):
         "perfil_activo": perfil_activo,
         "perfiles": sorted(perfil.codigo for perfil in usuario.perfiles),
         "nombres_perfiles": {perfil.codigo: perfil.nombre for perfil in usuario.perfiles},
+        "permisos": sorted({
+            permiso for perfil in usuario.perfiles if perfil.codigo == perfil_activo
+            for permiso in perfil.permisos.split(",") if permiso
+        }),
     }
 
 
@@ -174,7 +182,7 @@ def read_resumen_semestre(
 
 
 @app.post("/cursos/", response_model=schemas.Curso, status_code=status.HTTP_201_CREATED)
-def create_curso(datos: schemas.CursoCreate, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def create_curso(datos: schemas.CursoCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
     return crud.crear_curso(db, datos)
 
 
@@ -186,7 +194,7 @@ def update_curso(
     cod_fac: int = 1,
     cod_esc: int = 1,
     db: Session = Depends(get_db),
-    _: auth.UsuarioActual = Depends(auth.require_admin),
+    _: auth.UsuarioActual = Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO")),
 ):
     return crud.editar_curso(db, corr_pe, cod_curso, datos, cod_fac, cod_esc)
 
@@ -198,13 +206,13 @@ def delete_curso(
     cod_fac: int = 1,
     cod_esc: int = 1,
     db: Session = Depends(get_db),
-    _: auth.UsuarioActual = Depends(auth.require_admin),
+    _: auth.UsuarioActual = Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO")),
 ):
     return crud.eliminar_curso(db, corr_pe, cod_curso, cod_fac, cod_esc)
 
 
 @app.post("/prerrequisitos/", response_model=schemas.Mensaje, status_code=status.HTTP_201_CREATED)
-def create_prerequisito(datos: schemas.PrerequisitoCreate, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def create_prerequisito(datos: schemas.PrerequisitoCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
     return crud.agregar_prerequisito(db, datos)
 
 
@@ -219,7 +227,7 @@ def delete_prerequisito(
     cod_fac: int = 1,
     cod_esc: int = 1,
     db: Session = Depends(get_db),
-    _: auth.UsuarioActual = Depends(auth.require_admin),
+    _: auth.UsuarioActual = Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO")),
 ):
     return crud.retirar_prerequisito(
         db, corr_pe, cod_curso, cod_requisito, cod_fac, cod_esc,
@@ -227,17 +235,17 @@ def delete_prerequisito(
 
 
 @app.post("/sesiones/", response_model=schemas.Mensaje, status_code=status.HTTP_201_CREATED)
-def create_sesion(datos: schemas.SesionCreate, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def create_sesion(datos: schemas.SesionCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
     return crud.crear_sesion(db, datos)
 
 
 @app.put("/sesiones/", response_model=schemas.Mensaje)
-def update_sesion(datos: schemas.SesionEdicion, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def update_sesion(datos: schemas.SesionEdicion, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
     return crud.editar_sesion(db, datos)
 
 
 @app.get("/estudiantes/", response_model=List[schemas.Estudiante])
-def read_estudiantes(buscar: str | None = None, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def read_estudiantes(buscar: str | None = None, db: Session = Depends(get_db), _=Depends(auth.require_any_permission("GESTION_ESTUDIANTES", "GESTION_MATRICULAS", "GESTION_USUARIOS"))):
     return crud.get_estudiantes(db, buscar)
 
 
@@ -253,30 +261,32 @@ def read_mi_estudiante(
 
 
 @app.post("/estudiantes/", response_model=schemas.Estudiante, status_code=status.HTTP_201_CREATED)
-def create_estudiante(datos: schemas.EstudianteCreate, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def create_estudiante(datos: schemas.EstudianteCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_ESTUDIANTES"))):
     return crud.crear_estudiante(db, datos)
 
 
 @app.put("/estudiantes/{codigo}", response_model=schemas.Estudiante)
 def update_estudiante(
     codigo: str, datos: schemas.EstudianteUpdate, db: Session = Depends(get_db),
-    _: auth.UsuarioActual = Depends(auth.require_admin),
+    _: auth.UsuarioActual = Depends(auth.require_permission("GESTION_ESTUDIANTES")),
 ):
     return crud.editar_estudiante(db, codigo, datos)
 
 
 @app.delete("/estudiantes/{codigo}", response_model=schemas.Mensaje)
-def delete_estudiante(codigo: str, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def delete_estudiante(codigo: str, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_ESTUDIANTES"))):
     return crud.eliminar_estudiante(db, codigo)
 
 
 @app.get("/estudiantes/{codigo}/ofertas", response_model=List[schemas.OfertaCurso])
 def read_ofertas_estudiante(
     codigo: str, cod_periodo: str,
-    actual: auth.UsuarioActual = Depends(auth.require_student),
+    actual: auth.UsuarioActual = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    if actual.cod_estudiante != codigo:
+    if "GESTION_MATRICULAS" not in actual.permisos and (
+        "MATRICULA_PROPIA" not in actual.permisos or actual.cod_estudiante != codigo
+    ):
         raise HTTPException(status_code=403, detail="Solo puede consultar sus propias ofertas.")
     return crud.get_ofertas_estudiante(db, codigo, cod_periodo)
 
@@ -284,10 +294,12 @@ def read_ofertas_estudiante(
 @app.get("/estudiantes/{codigo}/matriculas", response_model=List[schemas.MatriculaResumen])
 def read_matriculas_estudiante(
     codigo: str,
-    actual: auth.UsuarioActual = Depends(auth.require_student),
+    actual: auth.UsuarioActual = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    if actual.cod_estudiante != codigo:
+    if "GESTION_MATRICULAS" not in actual.permisos and (
+        "MATRICULA_PROPIA" not in actual.permisos or actual.cod_estudiante != codigo
+    ):
         raise HTTPException(status_code=403, detail="Solo puede consultar su propio historial.")
     return crud.get_matriculas_estudiante(db, codigo)
 
@@ -295,10 +307,13 @@ def read_matriculas_estudiante(
 @app.post("/matriculas/", response_model=schemas.MatriculaResumen, status_code=status.HTTP_201_CREATED)
 def create_matricula(
     datos: schemas.MatriculaCreate,
-    actual: auth.UsuarioActual = Depends(auth.require_student),
+    actual: auth.UsuarioActual = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    if actual.cod_estudiante != datos.cod_estudiante:
+    if "GESTION_MATRICULAS" not in actual.permisos and (
+        "MATRICULA_PROPIA" not in actual.permisos
+        or actual.cod_estudiante != datos.cod_estudiante
+    ):
         raise HTTPException(status_code=403, detail="Solo puede registrar su propia matrícula.")
     return crud.crear_matricula(db, datos)
 
@@ -310,25 +325,25 @@ def create_matricula(
 def update_resultado(
     id_matricula: int, id_oferta: int, datos: schemas.ResultadoUpdate,
     db: Session = Depends(get_db),
-    _: auth.UsuarioActual = Depends(auth.require_admin),
+    _: auth.UsuarioActual = Depends(auth.require_permission("GESTION_MATRICULAS")),
 ):
     return crud.registrar_resultado(db, id_matricula, id_oferta, datos)
 
 
 @app.get("/usuarios/", response_model=List[schemas.UsuarioAdministracion])
-def read_usuarios(db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def read_usuarios(db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_USUARIOS"))):
     return crud.get_usuarios(db)
 
 
 @app.post("/usuarios/", response_model=schemas.UsuarioAdministracion, status_code=status.HTTP_201_CREATED)
-def create_usuario(datos: schemas.UsuarioCreate, db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def create_usuario(datos: schemas.UsuarioCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_USUARIOS"))):
     return crud.crear_usuario(db, datos)
 
 
 @app.put("/usuarios/{id_usuario}", response_model=schemas.UsuarioAdministracion)
 def update_usuario(
     id_usuario: int, datos: schemas.UsuarioUpdate,
-    db: Session = Depends(get_db), _=Depends(auth.require_admin),
+    db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_USUARIOS")),
 ):
     return crud.editar_usuario(db, id_usuario, datos)
 
@@ -336,19 +351,35 @@ def update_usuario(
 @app.delete("/usuarios/{id_usuario}", response_model=schemas.Mensaje)
 def delete_usuario(
     id_usuario: int, db: Session = Depends(get_db),
-    actual: auth.UsuarioActual = Depends(auth.require_admin),
+    actual: auth.UsuarioActual = Depends(auth.require_permission("GESTION_USUARIOS")),
 ):
     return crud.eliminar_usuario(db, id_usuario, actual.id_usuario)
 
 
 @app.get("/perfiles/", response_model=List[schemas.PerfilAdministracion])
-def read_perfiles(db: Session = Depends(get_db), _=Depends(auth.require_admin)):
+def read_perfiles(db: Session = Depends(get_db), _=Depends(auth.require_any_permission("GESTION_PERFILES", "GESTION_USUARIOS"))):
     return crud.get_perfiles(db)
 
 
 @app.put("/perfiles/{id_perfil}", response_model=schemas.PerfilAdministracion)
 def update_perfil(
     id_perfil: int, datos: schemas.PerfilUpdate,
-    db: Session = Depends(get_db), _=Depends(auth.require_admin),
+    db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_PERFILES")),
 ):
     return crud.editar_perfil(db, id_perfil, datos)
+
+
+@app.post("/perfiles/", response_model=schemas.PerfilAdministracion, status_code=status.HTTP_201_CREATED)
+def create_perfil(
+    datos: schemas.PerfilCreate, db: Session = Depends(get_db),
+    _=Depends(auth.require_permission("GESTION_PERFILES")),
+):
+    return crud.crear_perfil(db, datos)
+
+
+@app.delete("/perfiles/{id_perfil}", response_model=schemas.Mensaje)
+def delete_perfil(
+    id_perfil: int, db: Session = Depends(get_db),
+    _=Depends(auth.require_permission("GESTION_PERFILES")),
+):
+    return crud.eliminar_perfil(db, id_perfil)

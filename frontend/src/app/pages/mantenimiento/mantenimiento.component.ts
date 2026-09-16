@@ -5,6 +5,7 @@ import {
   PlanEstudio, ProgramacionHorario, SesionLocator, SesionPayload, Estudiante,
   EstudiantePayload
 } from '../../services/api.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-mantenimiento',
@@ -35,10 +36,10 @@ export class MantenimientoComponent implements OnInit {
   cursoForm: CursoPayload = this.nuevoCurso();
   sesionForm: SesionPayload = this.nuevaSesion();
 
-  constructor(private api: ApiService) {}
+  constructor(private api: ApiService, public auth: AuthService) {}
 
   ngOnInit(): void {
-    this.cargarEstudiantes();
+    if (this.auth.puede('GESTION_ESTUDIANTES')) this.cargarEstudiantes();
     this.api.getPeriodos().subscribe(data => {
       this.periodos = data;
       this.selectedPeriodo = data.find(p => p.activo)?.cod_periodo ?? data[0]?.cod_periodo;

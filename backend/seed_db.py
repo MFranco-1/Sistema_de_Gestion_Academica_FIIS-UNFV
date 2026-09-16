@@ -328,9 +328,9 @@ def insertar_periodos_y_ofertas(db):
 
 def insertar_estudiante_demo(db):
     estudiante = models.Estudiante(
-        cod_estudiante="20210001", dni="71234567",
+        cod_estudiante="2021000001", dni="71234567",
         apellidos_nombres="Pérez Quispe, Juan Carlos",
-        correo="20210001@unfv.edu.pe", cod_fac=FACULTAD, cod_esc=ESCUELA,
+        correo="2021000001@unfv.edu.pe", cod_fac=FACULTAD, cod_esc=ESCUELA,
         corr_pe=2, ciclo_actual=6, estado="ACTIVO",
     )
     db.add(estudiante)
@@ -359,15 +359,15 @@ def insertar_estudiante_demo(db):
         ))
 
     adicionales = [
-        ("20260001", "70000001", "Rojas Salazar, Andrea", 1),
-        ("20250002", "70000002", "Mendoza Ruiz, Diego", 2),
-        ("20250003", "70000003", "Castro Vega, Lucía", 3),
-        ("20240004", "70000004", "Navarro Flores, Martín", 4),
-        ("20240005", "70000005", "Quispe León, Valeria", 5),
-        ("20230007", "70000007", "Paredes Soto, Renato", 7),
-        ("20220008", "70000008", "Torres Campos, Daniela", 8),
-        ("20210009", "70000009", "Ramírez Peña, Sebastián", 9),
-        ("20200010", "70000010", "García Núñez, Camila", 10),
+        ("2026000001", "70000001", "Rojas Salazar, Andrea", 1),
+        ("2025000002", "70000002", "Mendoza Ruiz, Diego", 2),
+        ("2025000003", "70000003", "Castro Vega, Lucía", 3),
+        ("2024000004", "70000004", "Navarro Flores, Martín", 4),
+        ("2024000005", "70000005", "Quispe León, Valeria", 5),
+        ("2023000007", "70000007", "Paredes Soto, Renato", 7),
+        ("2022000008", "70000008", "Torres Campos, Daniela", 8),
+        ("2021000009", "70000009", "Ramírez Peña, Sebastián", 9),
+        ("2020000010", "70000010", "García Núñez, Camila", 10),
     ]
     for codigo, dni, nombre, ciclo in adicionales:
         item = models.Estudiante(

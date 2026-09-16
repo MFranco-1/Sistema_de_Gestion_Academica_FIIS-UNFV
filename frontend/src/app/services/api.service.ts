@@ -209,7 +209,7 @@ export interface UsuarioAdministracion {
   nombre_usuario: string;
   nombre_mostrar: string;
   cod_estudiante?: string;
-  perfiles: ('ADMINISTRADOR' | 'ESTUDIANTE')[];
+  perfiles: string[];
   activo: boolean;
 }
 
@@ -224,8 +224,9 @@ export interface UsuarioPayload {
 
 export interface PerfilAdministracion {
   id_perfil: number;
-  codigo: 'ADMINISTRADOR' | 'ESTUDIANTE';
+  codigo: string;
   nombre: string;
+  permisos: string[];
   total_usuarios: number;
 }
 
@@ -396,7 +397,15 @@ export class ApiService {
     return this.http.get<PerfilAdministracion[]>(`${this.apiUrl}/perfiles/`);
   }
 
-  editarPerfil(id: number, nombre: string): Observable<PerfilAdministracion> {
-    return this.http.put<PerfilAdministracion>(`${this.apiUrl}/perfiles/${id}`, { nombre });
+  editarPerfil(id: number, nombre: string, permisos: string[]): Observable<PerfilAdministracion> {
+    return this.http.put<PerfilAdministracion>(`${this.apiUrl}/perfiles/${id}`, { nombre, permisos });
+  }
+
+  crearPerfil(codigo: string, nombre: string, permisos: string[]): Observable<PerfilAdministracion> {
+    return this.http.post<PerfilAdministracion>(`${this.apiUrl}/perfiles/`, { codigo, nombre, permisos });
+  }
+
+  eliminarPerfil(id: number): Observable<Mensaje> {
+    return this.http.delete<Mensaje>(`${this.apiUrl}/perfiles/${id}`);
   }
 }

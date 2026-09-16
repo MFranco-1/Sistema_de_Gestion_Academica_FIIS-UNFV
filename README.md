@@ -14,6 +14,8 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Registro de notas y resultados para cursos aprobados, desaprobados o retirados.
 - Login institucional con perfiles Administrador y Estudiante, cambio de perfil dentro del panel y permisos por endpoint.
 - Administración separada de usuarios y perfiles, con activación de cuentas, vínculo con estudiantes y nombres de perfil editables.
+- Perfiles personalizados con permisos configurables, asignación dinámica a usuarios y gestión administrativa de matrículas e historial.
+- Códigos estudiantiles de exactamente 10 dígitos; las cuentas estudiantiles se inicializan obligatoriamente con el DNI como contraseña.
 - Validación de duplicados, semestres, créditos, horas, precedencia académica y cruces de aula/sección.
 - Documentación interactiva de la API con Swagger.
 
@@ -117,6 +119,8 @@ Interfaz: `http://localhost:4200`.
 - `GET /estudiantes/`
 - `GET /estudiantes/{codigo}/ofertas?cod_periodo=2026-I`
 - `GET /estudiantes/{codigo}/matriculas`
+- `POST /matriculas/`
+- `PUT /matriculas/{id}/ofertas/{id_oferta}/resultado`
 
 ### Mantenimiento
 
@@ -137,7 +141,9 @@ Interfaz: `http://localhost:4200`.
 - `PUT /usuarios/{id}`
 - `DELETE /usuarios/{id}`
 - `GET /perfiles/`
+- `POST /perfiles/`
 - `PUT /perfiles/{id}`
+- `DELETE /perfiles/{id}`
 
 Las mutaciones usan transacciones. Los errores de validación se devuelven como HTTP 422 y los conflictos de integridad o cruces como HTTP 409.
 

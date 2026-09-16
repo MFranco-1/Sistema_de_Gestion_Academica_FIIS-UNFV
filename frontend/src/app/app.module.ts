@@ -16,6 +16,7 @@ import { LoginComponent } from './pages/login/login.component';
 import { AuthInterceptor } from './services/auth.interceptor';
 import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 import { PerfilesComponent } from './pages/perfiles/perfiles.component';
+import { GestionMatriculasComponent } from './pages/gestion-matriculas/gestion-matriculas.component';
 
 @NgModule({
   declarations: [
@@ -29,7 +30,8 @@ import { PerfilesComponent } from './pages/perfiles/perfiles.component';
     MatriculaComponent,
     LoginComponent,
     UsuariosComponent,
-    PerfilesComponent
+    PerfilesComponent,
+    GestionMatriculasComponent
   ],
   imports: [
     BrowserModule,

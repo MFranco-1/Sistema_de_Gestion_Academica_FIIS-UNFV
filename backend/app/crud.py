@@ -676,6 +676,7 @@ def editar_estudiante(db: Session, codigo: str, datos: schemas.EstudianteUpdate)
     usuario = db.query(models.Usuario).filter_by(cod_estudiante=codigo).first()
     if usuario:
         usuario.nombre_mostrar = datos.apellidos_nombres
+        usuario.clave_hash = auth.hash_password(datos.dni)
     _commit(db, "El DNI o correo ya pertenece a otro estudiante.")
     return get_estudiantes(db, codigo)[0]
 
@@ -949,7 +950,9 @@ def _resolver_perfiles(db: Session, codigos: list[str]):
 
 
 def _validar_vinculo_estudiante(db: Session, codigo: str | None, perfiles: list[models.Perfil]):
-    tiene_perfil = any(perfil.codigo == auth.PERFIL_ESTUDIANTE for perfil in perfiles)
+    tiene_perfil = any(
+        "MATRICULA_PROPIA" in perfil.permisos.split(",") for perfil in perfiles
+    )
     if tiene_perfil and not codigo:
         raise HTTPException(status_code=422, detail="El perfil Estudiante requiere vincular un estudiante.")
     if codigo and not db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first():
@@ -960,9 +963,10 @@ def crear_usuario(db: Session, datos: schemas.UsuarioCreate):
     perfiles = _resolver_perfiles(db, datos.perfiles)
     codigo = datos.cod_estudiante.strip().upper() if datos.cod_estudiante else None
     _validar_vinculo_estudiante(db, codigo, perfiles)
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first() if codigo else None
     usuario = models.Usuario(
         nombre_usuario=datos.nombre_usuario.strip().lower(),
-        clave_hash=auth.hash_password(datos.clave),
+        clave_hash=auth.hash_password(estudiante.dni if estudiante else datos.clave),
         nombre_mostrar=datos.nombre_mostrar.strip(),
         cod_estudiante=codigo,
         activo=datos.activo,
@@ -985,7 +989,10 @@ def editar_usuario(db: Session, id_usuario: int, datos: schemas.UsuarioUpdate):
     usuario.cod_estudiante = codigo
     usuario.activo = datos.activo
     usuario.perfiles = perfiles
-    if datos.clave:
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first() if codigo else None
+    if estudiante:
+        usuario.clave_hash = auth.hash_password(estudiante.dni)
+    elif datos.clave:
         usuario.clave_hash = auth.hash_password(datos.clave)
     _commit(db, "El estudiante vinculado ya pertenece a otra cuenta.")
     return _usuario_dict(usuario)
@@ -1018,6 +1025,7 @@ def get_perfiles(db: Session):
         "id_perfil": perfil.id_perfil,
         "codigo": perfil.codigo,
         "nombre": perfil.nombre,
+        "permisos": sorted(item for item in perfil.permisos.split(",") if item),
         "total_usuarios": total,
     } for perfil, total in filas]
 
@@ -1027,5 +1035,37 @@ def editar_perfil(db: Session, id_perfil: int, datos: schemas.PerfilUpdate):
     if not perfil:
         raise HTTPException(status_code=404, detail="El perfil no existe.")
     perfil.nombre = datos.nombre
+    permisos = sorted(set(datos.permisos))
+    invalidos = set(permisos) - auth.PERMISOS_VALIDOS
+    if invalidos:
+        raise HTTPException(status_code=422, detail="Uno o más permisos no son válidos.")
+    perfil.permisos = ",".join(permisos)
     _commit(db, "Ya existe otro perfil con ese nombre.")
     return next(item for item in get_perfiles(db) if item["id_perfil"] == id_perfil)
+
+
+def crear_perfil(db: Session, datos: schemas.PerfilCreate):
+    permisos = sorted(set(datos.permisos))
+    if set(permisos) - auth.PERMISOS_VALIDOS:
+        raise HTTPException(status_code=422, detail="Uno o más permisos no son válidos.")
+    perfil = models.Perfil(
+        codigo=datos.codigo, nombre=datos.nombre, permisos=",".join(permisos),
+    )
+    db.add(perfil)
+    _commit(db, "El código o nombre del perfil ya existe.")
+    db.refresh(perfil)
+    return next(item for item in get_perfiles(db) if item["id_perfil"] == perfil.id_perfil)
+
+
+def eliminar_perfil(db: Session, id_perfil: int):
+    perfil = db.query(models.Perfil).filter_by(id_perfil=id_perfil).first()
+    if not perfil:
+        raise HTTPException(status_code=404, detail="El perfil no existe.")
+    if perfil.codigo in {auth.PERFIL_ADMIN, auth.PERFIL_ESTUDIANTE}:
+        raise HTTPException(status_code=409, detail="Los perfiles institucionales base no se pueden eliminar.")
+    if db.query(models.UsuarioPerfil).filter_by(id_perfil=id_perfil).first():
+        raise HTTPException(status_code=409, detail="No se puede eliminar un perfil asignado a usuarios.")
+    nombre = perfil.nombre
+    db.delete(perfil)
+    _commit(db, "No se pudo eliminar el perfil.")
+    return {"mensaje": f"Perfil {nombre} eliminado correctamente."}

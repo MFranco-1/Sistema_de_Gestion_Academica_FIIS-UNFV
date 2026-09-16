@@ -261,7 +261,7 @@ class EstudianteBase(BaseModel):
 
 
 class EstudianteCreate(EstudianteBase):
-    cod_estudiante: str = Field(min_length=1, max_length=12)
+    cod_estudiante: str = Field(pattern=r"^\d{10}$")
 
     @field_validator("cod_estudiante")
     @classmethod
@@ -352,6 +352,7 @@ class UsuarioSesion(BaseModel):
     perfil_activo: str
     perfiles: list[str]
     nombres_perfiles: dict[str, str]
+    permisos: list[str]
 
 
 class LoginResponse(BaseModel):
@@ -366,7 +367,7 @@ class CambioPerfil(BaseModel):
     @classmethod
     def normalizar_perfil(cls, valor: str) -> str:
         valor = valor.strip().upper()
-        if valor not in {"ADMINISTRADOR", "ESTUDIANTE"}:
+        if not valor:
             raise ValueError("El perfil indicado no es válido.")
         return valor
 
@@ -375,14 +376,14 @@ class UsuarioCreate(BaseModel):
     nombre_usuario: str = Field(min_length=3, max_length=60)
     clave: str = Field(min_length=6, max_length=128)
     nombre_mostrar: str = Field(min_length=3, max_length=160)
-    cod_estudiante: Optional[str] = Field(default=None, max_length=12)
+    cod_estudiante: Optional[str] = Field(default=None, pattern=r"^\d{10}$")
     perfiles: list[str] = Field(min_length=1)
     activo: bool = True
 
 
 class UsuarioUpdate(BaseModel):
     nombre_mostrar: str = Field(min_length=3, max_length=160)
-    cod_estudiante: Optional[str] = Field(default=None, max_length=12)
+    cod_estudiante: Optional[str] = Field(default=None, pattern=r"^\d{10}$")
     perfiles: list[str] = Field(min_length=1)
     activo: bool = True
     clave: Optional[str] = Field(default=None, min_length=6, max_length=128)
@@ -401,13 +402,24 @@ class PerfilAdministracion(BaseModel):
     id_perfil: int
     codigo: str
     nombre: str
+    permisos: list[str]
     total_usuarios: int
 
 
 class PerfilUpdate(BaseModel):
     nombre: str = Field(min_length=3, max_length=50)
+    permisos: list[str]
 
     @field_validator("nombre")
     @classmethod
     def limpiar_nombre(cls, valor: str) -> str:
         return valor.strip()
+
+
+class PerfilCreate(PerfilUpdate):
+    codigo: str = Field(pattern=r"^[A-Z][A-Z0-9_]{2,19}$")
+
+    @field_validator("codigo")
+    @classmethod
+    def normalizar_codigo(cls, valor: str) -> str:
+        return valor.strip().upper()

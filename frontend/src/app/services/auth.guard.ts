@@ -15,9 +15,11 @@ export class AuthGuard implements CanActivate {
 @Injectable({ providedIn: 'root' })
 export class AdminGuard implements CanActivate {
   constructor(private auth: AuthService, private router: Router) {}
-  canActivate(): boolean {
-    if (this.auth.esAdministrador) return true;
-    this.router.navigate(['/matricula']);
+  canActivate(route: ActivatedRouteSnapshot): boolean {
+    const permiso = route.data['permiso'] as string;
+    const permisos = (route.data['permisos'] as string[] | undefined) || [];
+    if ((!permiso && !permisos.length) || (permiso && this.auth.puede(permiso)) || this.auth.puedeAlguno(...permisos)) return true;
+    this.router.navigate([this.auth.rutaInicial()]);
     return false;
   }
 }
@@ -26,8 +28,8 @@ export class AdminGuard implements CanActivate {
 export class StudentGuard implements CanActivate {
   constructor(private auth: AuthService, private router: Router) {}
   canActivate(): boolean {
-    if (this.auth.esEstudiante) return true;
-    this.router.navigate(['/catalog']);
+    if (this.auth.puede('MATRICULA_PROPIA')) return true;
+    this.router.navigate([this.auth.rutaInicial()]);
     return false;
   }
 }

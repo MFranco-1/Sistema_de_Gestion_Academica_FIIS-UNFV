@@ -4,7 +4,7 @@ import { BehaviorSubject, Observable, tap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 
-export type Perfil = 'ADMINISTRADOR' | 'ESTUDIANTE';
+export type Perfil = string;
 
 export interface UsuarioSesion {
   id_usuario: number;
@@ -14,6 +14,7 @@ export interface UsuarioSesion {
   perfil_activo: Perfil;
   perfiles: Perfil[];
   nombres_perfiles: Record<string, string>;
+  permisos: string[];
 }
 
 interface LoginResponse { token: string; usuario: UsuarioSesion; }
@@ -33,9 +34,11 @@ export class AuthService {
     return stored ? JSON.parse(stored).token : null;
   }
   get autenticado(): boolean { return !!this.usuario && !!this.token; }
-  get esAdministrador(): boolean { return this.usuario?.perfil_activo === 'ADMINISTRADOR'; }
-  get esEstudiante(): boolean { return this.usuario?.perfil_activo === 'ESTUDIANTE'; }
-  nombrePerfil(perfil?: Perfil): string { return perfil ? (this.usuario?.nombres_perfiles?.[perfil] || (perfil === 'ADMINISTRADOR' ? 'Administrador' : 'Estudiante')) : ''; }
+  get esAdministrador(): boolean { return this.puede('GESTION_USUARIOS'); }
+  get esEstudiante(): boolean { return this.puede('MATRICULA_PROPIA'); }
+  puede(permiso: string): boolean { return !!this.usuario?.permisos?.includes(permiso); }
+  puedeAlguno(...permisos: string[]): boolean { return permisos.some(permiso => this.puede(permiso)); }
+  nombrePerfil(perfil?: Perfil): string { return perfil ? (this.usuario?.nombres_perfiles?.[perfil] || perfil) : ''; }
 
   login(nombre_usuario: string, clave: string): Observable<LoginResponse> {
     return this.http.post<LoginResponse>(`${this.apiUrl}/auth/login`, { nombre_usuario, clave }).pipe(
@@ -55,7 +58,14 @@ export class AuthService {
     this.router.navigate(['/login']);
   }
 
-  rutaInicial(): string { return this.esEstudiante ? '/matricula' : '/catalog'; }
+  rutaInicial(): string {
+    if (this.puede('MATRICULA_PROPIA')) return '/matricula';
+    if (this.puede('GESTION_CURRICULAR')) return '/catalog';
+    if (this.puede('GESTION_MATRICULAS')) return '/admin/matriculas';
+    if (this.puede('GESTION_USUARIOS')) return '/admin/usuarios';
+    if (this.puede('GESTION_PERFILES')) return '/admin/perfiles';
+    return '/login';
+  }
 
   private saveSession(response: LoginResponse): void {
     localStorage.setItem(this.storageKey, JSON.stringify(response));

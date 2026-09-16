@@ -83,7 +83,7 @@ JOIN oferta_curso AS o ON o.id_oferta = md.id_oferta
 JOIN curso AS c
   ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
  AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
-WHERE m.cod_estudiante = '20210001'
+WHERE m.cod_estudiante = '2021000001'
 ORDER BY m.cod_periodo, c.semestre;
 
 -- 10. Ofertas de la malla del estudiante en un período.
@@ -96,7 +96,7 @@ JOIN oferta_curso AS o
 JOIN curso AS c
   ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
  AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
-WHERE e.cod_estudiante = '20210001'
+WHERE e.cod_estudiante = '2021000001'
   AND o.cod_periodo = '2026-V' AND o.activo = TRUE
 ORDER BY c.semestre, c.cod_curso;
 

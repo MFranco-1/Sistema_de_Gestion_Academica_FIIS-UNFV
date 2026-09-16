@@ -17,6 +17,13 @@ from app.database import get_db
 
 PERFIL_ADMIN = "ADMINISTRADOR"
 PERFIL_ESTUDIANTE = "ESTUDIANTE"
+PERMISOS_VALIDOS = {
+    "GESTION_CURRICULAR", "PLANA_DOCENTE", "MANTENIMIENTO_ACADEMICO",
+    "GESTION_ESTUDIANTES", "GESTION_USUARIOS", "GESTION_PERFILES",
+    "MATRICULA_PROPIA", "GESTION_MATRICULAS",
+}
+PERMISOS_ADMIN = sorted(PERMISOS_VALIDOS - {"MATRICULA_PROPIA"})
+PERMISOS_ESTUDIANTE = ["MATRICULA_PROPIA"]
 security = HTTPBearer(auto_error=False)
 
 
@@ -29,6 +36,7 @@ class UsuarioActual:
     perfil_activo: str
     perfiles: list[str]
     nombres_perfiles: dict[str, str]
+    permisos: list[str]
 
 
 def hash_password(password: str) -> str:
@@ -97,35 +105,68 @@ def get_current_user(
     perfil_activo = payload.get("perfil")
     if perfil_activo not in perfiles:
         raise HTTPException(status_code=403, detail="El perfil activo ya no está asignado.")
+    perfil_obj = next(perfil for perfil in user.perfiles if perfil.codigo == perfil_activo)
+    permisos = sorted({item for item in perfil_obj.permisos.split(",") if item})
     return UsuarioActual(
         user.id_usuario, user.nombre_usuario, user.nombre_mostrar,
         user.cod_estudiante, perfil_activo, perfiles,
         {perfil.codigo: perfil.nombre for perfil in user.perfiles},
+        permisos,
     )
 
 
 def require_admin(user: UsuarioActual = Depends(get_current_user)) -> UsuarioActual:
-    if user.perfil_activo != PERFIL_ADMIN:
-        raise HTTPException(status_code=403, detail="Esta operación requiere el perfil Administrador.")
+    if "GESTION_USUARIOS" not in user.permisos:
+        raise HTTPException(status_code=403, detail="El perfil activo no tiene permiso para esta operación.")
     return user
 
 
 def require_student(user: UsuarioActual = Depends(get_current_user)) -> UsuarioActual:
-    if user.perfil_activo != PERFIL_ESTUDIANTE:
-        raise HTTPException(status_code=403, detail="Esta operación requiere el perfil Estudiante.")
+    if "MATRICULA_PROPIA" not in user.permisos:
+        raise HTTPException(status_code=403, detail="El perfil activo no permite matrícula personal.")
     if not user.cod_estudiante:
         raise HTTPException(status_code=403, detail="El usuario no está vinculado con un estudiante.")
     return user
 
 
+def require_permission(permission: str):
+    def dependency(user: UsuarioActual = Depends(get_current_user)) -> UsuarioActual:
+        if permission not in user.permisos:
+            raise HTTPException(
+                status_code=403,
+                detail=f"El perfil activo no tiene el permiso {permission}.",
+            )
+        return user
+    return dependency
+
+
+def require_any_permission(*permissions: str):
+    def dependency(user: UsuarioActual = Depends(get_current_user)) -> UsuarioActual:
+        if not set(permissions).intersection(user.permisos):
+            raise HTTPException(
+                status_code=403,
+                detail="El perfil activo no tiene permisos para esta operación.",
+            )
+        return user
+    return dependency
+
+
 def ensure_security_data(db: Session) -> None:
     perfiles = {}
-    for codigo, nombre in ((PERFIL_ADMIN, "Administrador"), (PERFIL_ESTUDIANTE, "Estudiante")):
+    defaults = (
+        (PERFIL_ADMIN, "Administrador", PERMISOS_ADMIN),
+        (PERFIL_ESTUDIANTE, "Estudiante", PERMISOS_ESTUDIANTE),
+    )
+    for codigo, nombre, permisos_default in defaults:
         perfil = db.query(models.Perfil).filter_by(codigo=codigo).first()
         if not perfil:
-            perfil = models.Perfil(codigo=codigo, nombre=nombre)
+            perfil = models.Perfil(
+                codigo=codigo, nombre=nombre, permisos=",".join(permisos_default),
+            )
             db.add(perfil)
             db.flush()
+        elif not perfil.permisos:
+            perfil.permisos = ",".join(permisos_default)
         perfiles[codigo] = perfil
     admin_name = os.getenv("ADMIN_USERNAME", "admin").strip().lower()
     configured_password = os.getenv("ADMIN_PASSWORD")
