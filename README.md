@@ -9,12 +9,15 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Resumen SQL por semestre: cursos, créditos, horas, tipos y presencia de prerrequisitos.
 - Consulta de programación académica y plana docente.
 - Mantenimiento transaccional de cursos, prerrequisitos y sesiones de horario.
+- CRUD de estudiantes y asignación de malla y ciclo académico.
+- Matrícula validada por oferta anual, período I/II/verano, historial y prerrequisitos.
+- Registro de notas y resultados para cursos aprobados, desaprobados o retirados.
 - Validación de duplicados, semestres, créditos, horas, precedencia académica y cruces de aula/sección.
 - Documentación interactiva de la API con Swagger.
 
 ## Modelo de datos
 
-El modelo mantiene exactamente estas diez tablas:
+El modelo mantiene catorce tablas:
 
 1. `facultad`
 2. `escuela`
@@ -26,6 +29,10 @@ El modelo mantiene exactamente estas diez tablas:
 8. `horario_cabecera`
 9. `horario_detalle`
 10. `horario_curso`
+11. `estudiante`
+12. `oferta_curso`
+13. `matricula`
+14. `matricula_detalle`
 
 No existe una tabla `plan_semestre`. Los semestres de cada malla se obtienen con `SELECT DISTINCT curso.semestre`.
 
@@ -93,6 +100,9 @@ Interfaz: `http://localhost:4200`.
 - `GET /horarios/?corr_pe=2&semestre=6&cod_periodo=2026-II`
 - `GET /programacion/?corr_pe=2&semestre=6&cod_periodo=2026-II`
 - `GET /docentes/`
+- `GET /estudiantes/`
+- `GET /estudiantes/{codigo}/ofertas?cod_periodo=2026-I`
+- `GET /estudiantes/{codigo}/matriculas`
 
 ### Mantenimiento
 
@@ -103,6 +113,11 @@ Interfaz: `http://localhost:4200`.
 - `DELETE /prerrequisitos/{corr_pe}/{cod_curso}/{cod_requisito}`
 - `POST /sesiones/`
 - `PUT /sesiones/`
+- `POST /estudiantes/`
+- `PUT /estudiantes/{codigo}`
+- `DELETE /estudiantes/{codigo}`
+- `POST /matriculas/`
+- `PUT /matriculas/{id}/ofertas/{id_oferta}/resultado`
 
 Las mutaciones usan transacciones. Los errores de validación se devuelven como HTTP 422 y los conflictos de integridad o cruces como HTTP 409.
 
@@ -111,7 +126,8 @@ Las mutaciones usan transacciones. Los errores de validación se devuelven como 
 - `database/01_esquema.sql`: definición física de las diez tablas, claves, restricciones e índices.
 - `database/02_consultas_demostracion.sql`: semestres, detalle, dependencias, resumen y controles de horario/eliminación.
 - `database/03_diccionario_datos.md`: descripción de tablas y reglas de integridad.
+- `database/04_migracion_matricula.sql`: actualización no destructiva para una base existente.
 
 ## Datos académicos incluidos
 
-Se conservan las mallas 2010 y 2019, sus cursos, créditos y prerrequisitos, la plana docente y el horario demostrativo del semestre VI del período 2026-II. El mantenimiento no crea estudiantes, matrículas, usuarios ni tablas adicionales.
+Se conservan las mallas 2010 y 2019, sus cursos, créditos y prerrequisitos, la plana docente y el horario demostrativo. También se incluyen períodos 2024–2026, ofertas regulares por paridad de ciclo, ofertas de verano y un estudiante de demostración con un curso aprobado y otro desaprobado.

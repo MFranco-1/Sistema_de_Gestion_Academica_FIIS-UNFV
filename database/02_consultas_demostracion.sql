@@ -74,3 +74,28 @@ SELECT
   EXISTS (SELECT 1 FROM horario_curso hc
           WHERE hc.cod_fac = 1 AND hc.cod_esc = 1 AND hc.corr_pe = 2
             AND hc.cod_curso = 'P19-41') AS tiene_horarios;
+
+-- 9. Historial académico de un estudiante.
+SELECT m.cod_periodo, c.cod_curso, c.den_curso, md.nota_final, md.resultado
+FROM matricula AS m
+JOIN matricula_detalle AS md ON md.id_matricula = m.id_matricula
+JOIN oferta_curso AS o ON o.id_oferta = md.id_oferta
+JOIN curso AS c
+  ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+ AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+WHERE m.cod_estudiante = '20210001'
+ORDER BY m.cod_periodo, c.semestre;
+
+-- 10. Ofertas de la malla del estudiante en un período.
+-- La API completa esta consulta excluyendo cursos aprobados y verificando prerrequisitos y vacantes.
+SELECT o.id_oferta, o.cod_periodo, c.cod_curso, c.den_curso,
+       c.semestre, o.cod_seccion, o.vacantes
+FROM estudiante AS e
+JOIN oferta_curso AS o
+  ON o.cod_fac = e.cod_fac AND o.cod_esc = e.cod_esc AND o.corr_pe = e.corr_pe
+JOIN curso AS c
+  ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+ AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+WHERE e.cod_estudiante = '20210001'
+  AND o.cod_periodo = '2026-V' AND o.activo = TRUE
+ORDER BY c.semestre, c.cod_curso;

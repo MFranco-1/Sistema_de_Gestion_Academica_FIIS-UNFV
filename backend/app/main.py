@@ -188,3 +188,53 @@ def create_sesion(datos: schemas.SesionCreate, db: Session = Depends(get_db)):
 @app.put("/sesiones/", response_model=schemas.Mensaje)
 def update_sesion(datos: schemas.SesionEdicion, db: Session = Depends(get_db)):
     return crud.editar_sesion(db, datos)
+
+
+@app.get("/estudiantes/", response_model=List[schemas.Estudiante])
+def read_estudiantes(buscar: str | None = None, db: Session = Depends(get_db)):
+    return crud.get_estudiantes(db, buscar)
+
+
+@app.post("/estudiantes/", response_model=schemas.Estudiante, status_code=status.HTTP_201_CREATED)
+def create_estudiante(datos: schemas.EstudianteCreate, db: Session = Depends(get_db)):
+    return crud.crear_estudiante(db, datos)
+
+
+@app.put("/estudiantes/{codigo}", response_model=schemas.Estudiante)
+def update_estudiante(
+    codigo: str, datos: schemas.EstudianteUpdate, db: Session = Depends(get_db),
+):
+    return crud.editar_estudiante(db, codigo, datos)
+
+
+@app.delete("/estudiantes/{codigo}", response_model=schemas.Mensaje)
+def delete_estudiante(codigo: str, db: Session = Depends(get_db)):
+    return crud.eliminar_estudiante(db, codigo)
+
+
+@app.get("/estudiantes/{codigo}/ofertas", response_model=List[schemas.OfertaCurso])
+def read_ofertas_estudiante(
+    codigo: str, cod_periodo: str, db: Session = Depends(get_db),
+):
+    return crud.get_ofertas_estudiante(db, codigo, cod_periodo)
+
+
+@app.get("/estudiantes/{codigo}/matriculas", response_model=List[schemas.MatriculaResumen])
+def read_matriculas_estudiante(codigo: str, db: Session = Depends(get_db)):
+    return crud.get_matriculas_estudiante(db, codigo)
+
+
+@app.post("/matriculas/", response_model=schemas.MatriculaResumen, status_code=status.HTTP_201_CREATED)
+def create_matricula(datos: schemas.MatriculaCreate, db: Session = Depends(get_db)):
+    return crud.crear_matricula(db, datos)
+
+
+@app.put(
+    "/matriculas/{id_matricula}/ofertas/{id_oferta}/resultado",
+    response_model=schemas.Mensaje,
+)
+def update_resultado(
+    id_matricula: int, id_oferta: int, datos: schemas.ResultadoUpdate,
+    db: Session = Depends(get_db),
+):
+    return crud.registrar_resultado(db, id_matricula, id_oferta, datos)

@@ -93,6 +93,8 @@ export interface PrerequisitoPayload {
 export interface PeriodoAcademico {
   cod_periodo: string;
   den_periodo: string;
+  anio: number;
+  tipo_periodo: 'I' | 'II' | 'VERANO';
   fecha_inicio: string;
   fecha_fin: string;
   activo: boolean;
@@ -149,6 +151,58 @@ export interface SesionLocator {
 }
 
 export interface Mensaje { mensaje: string; }
+
+export interface Estudiante {
+  cod_estudiante: string;
+  dni: string;
+  apellidos_nombres: string;
+  correo: string;
+  cod_fac: number;
+  cod_esc: number;
+  corr_pe: number;
+  ciclo_actual: number;
+  estado: 'ACTIVO' | 'EGRESADO' | 'RETIRADO';
+  den_plan: string;
+}
+
+export type EstudiantePayload = Omit<Estudiante, 'den_plan'>;
+
+export interface OfertaCurso {
+  id_oferta: number;
+  cod_periodo: string;
+  corr_pe: number;
+  cod_curso: string;
+  den_curso: string;
+  semestre: number;
+  cod_seccion: string;
+  vacantes: number;
+  matriculados: number;
+  vacantes_disponibles: number;
+  disponible: boolean;
+  motivo: string;
+}
+
+export interface MatriculaDetalle {
+  id_matricula: number;
+  id_oferta: number;
+  cod_periodo: string;
+  cod_curso: string;
+  den_curso: string;
+  semestre: number;
+  cod_seccion: string;
+  nota_final?: number;
+  resultado: 'MATRICULADO' | 'APROBADO' | 'DESAPROBADO' | 'RETIRADO';
+}
+
+export interface MatriculaResumen {
+  id_matricula: number;
+  cod_estudiante: string;
+  cod_periodo: string;
+  ciclo_matricula: number;
+  fecha_matricula: string;
+  estado: string;
+  detalles: MatriculaDetalle[];
+}
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
@@ -241,5 +295,55 @@ export class ApiService {
 
   editarSesion(original: SesionLocator, sesion: SesionPayload): Observable<Mensaje> {
     return this.http.put<Mensaje>(`${this.apiUrl}/sesiones/`, { original, sesion });
+  }
+
+  getEstudiantes(buscar?: string): Observable<Estudiante[]> {
+    let params = new HttpParams();
+    if (buscar?.trim()) params = params.set('buscar', buscar.trim());
+    return this.http.get<Estudiante[]>(`${this.apiUrl}/estudiantes/`, { params });
+  }
+
+  crearEstudiante(datos: EstudiantePayload): Observable<Estudiante> {
+    return this.http.post<Estudiante>(`${this.apiUrl}/estudiantes/`, datos);
+  }
+
+  editarEstudiante(codigo: string, datos: Omit<EstudiantePayload, 'cod_estudiante'>): Observable<Estudiante> {
+    return this.http.put<Estudiante>(
+      `${this.apiUrl}/estudiantes/${encodeURIComponent(codigo)}`, datos
+    );
+  }
+
+  eliminarEstudiante(codigo: string): Observable<Mensaje> {
+    return this.http.delete<Mensaje>(
+      `${this.apiUrl}/estudiantes/${encodeURIComponent(codigo)}`
+    );
+  }
+
+  getOfertasEstudiante(codigo: string, periodo: string): Observable<OfertaCurso[]> {
+    return this.http.get<OfertaCurso[]>(
+      `${this.apiUrl}/estudiantes/${encodeURIComponent(codigo)}/ofertas`,
+      { params: new HttpParams().set('cod_periodo', periodo) }
+    );
+  }
+
+  getMatriculasEstudiante(codigo: string): Observable<MatriculaResumen[]> {
+    return this.http.get<MatriculaResumen[]>(
+      `${this.apiUrl}/estudiantes/${encodeURIComponent(codigo)}/matriculas`
+    );
+  }
+
+  crearMatricula(codigo: string, periodo: string, ofertas: number[]): Observable<MatriculaResumen> {
+    return this.http.post<MatriculaResumen>(`${this.apiUrl}/matriculas/`, {
+      cod_estudiante: codigo, cod_periodo: periodo, ofertas
+    });
+  }
+
+  registrarResultado(
+    idMatricula: number, idOferta: number, notaFinal: number | undefined, resultado: string
+  ): Observable<Mensaje> {
+    return this.http.put<Mensaje>(
+      `${this.apiUrl}/matriculas/${idMatricula}/ofertas/${idOferta}/resultado`,
+      { nota_final: notaFinal, resultado }
+    );
   }
 }

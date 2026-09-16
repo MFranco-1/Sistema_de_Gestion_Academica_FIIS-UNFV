@@ -66,6 +66,8 @@ class Curso(BaseModel):
 class PeriodoAcademico(BaseModel):
     cod_periodo: str
     den_periodo: str
+    anio: int
+    tipo_periodo: str
     fecha_inicio: date
     fecha_fin: date
     activo: bool
@@ -232,6 +234,105 @@ class SesionLocator(BaseModel):
 class SesionEdicion(BaseModel):
     original: SesionLocator
     sesion: SesionCreate
+
+
+class EstudianteBase(BaseModel):
+    dni: str = Field(pattern=r"^\d{8}$")
+    apellidos_nombres: str = Field(min_length=3, max_length=160)
+    correo: str = Field(min_length=5, max_length=120)
+    cod_fac: int = 1
+    cod_esc: int = 1
+    corr_pe: int
+    ciclo_actual: int = Field(ge=1, le=10)
+    estado: str = "ACTIVO"
+
+    @field_validator("apellidos_nombres", "correo")
+    @classmethod
+    def limpiar_texto(cls, valor: str) -> str:
+        return valor.strip()
+
+    @field_validator("estado")
+    @classmethod
+    def validar_estado_estudiante(cls, valor: str) -> str:
+        valor = valor.strip().upper()
+        if valor not in {"ACTIVO", "EGRESADO", "RETIRADO"}:
+            raise ValueError("El estado del estudiante no es válido.")
+        return valor
+
+
+class EstudianteCreate(EstudianteBase):
+    cod_estudiante: str = Field(min_length=1, max_length=12)
+
+    @field_validator("cod_estudiante")
+    @classmethod
+    def limpiar_codigo(cls, valor: str) -> str:
+        return valor.strip().upper()
+
+
+class EstudianteUpdate(EstudianteBase):
+    pass
+
+
+class Estudiante(EstudianteCreate):
+    den_plan: str = ""
+    class Config:
+        from_attributes = True
+
+
+class OfertaCurso(BaseModel):
+    id_oferta: int
+    cod_periodo: str
+    corr_pe: int
+    cod_curso: str
+    den_curso: str
+    semestre: int
+    cod_seccion: str
+    vacantes: int
+    matriculados: int
+    vacantes_disponibles: int
+    disponible: bool
+    motivo: str = ""
+
+
+class MatriculaCreate(BaseModel):
+    cod_estudiante: str
+    cod_periodo: str
+    ofertas: list[int] = Field(min_length=1)
+
+
+class ResultadoUpdate(BaseModel):
+    nota_final: Optional[int] = Field(default=None, ge=0, le=20)
+    resultado: str
+
+    @field_validator("resultado")
+    @classmethod
+    def validar_resultado(cls, valor: str) -> str:
+        valor = valor.strip().upper()
+        if valor not in {"MATRICULADO", "APROBADO", "DESAPROBADO", "RETIRADO"}:
+            raise ValueError("El resultado académico no es válido.")
+        return valor
+
+
+class MatriculaDetalle(BaseModel):
+    id_matricula: int
+    id_oferta: int
+    cod_periodo: str
+    cod_curso: str
+    den_curso: str
+    semestre: int
+    cod_seccion: str
+    nota_final: Optional[int] = None
+    resultado: str
+
+
+class MatriculaResumen(BaseModel):
+    id_matricula: int
+    cod_estudiante: str
+    cod_periodo: str
+    ciclo_matricula: int
+    fecha_matricula: date
+    estado: str
+    detalles: list[MatriculaDetalle] = []
 
 
 class Mensaje(BaseModel):

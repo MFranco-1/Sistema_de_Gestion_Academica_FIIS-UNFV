@@ -262,12 +262,6 @@ def insertar_plan(db, corr_pe, plan, cursos, prerequisitos):
 
 
 def insertar_horario_demo(db):
-    periodo = models.PeriodoAcademico(
-        cod_periodo="2026-II", den_periodo="Semestre académico 2026-II",
-        fecha_inicio=date(2026, 8, 17), fecha_fin=date(2026, 12, 19), activo=True,
-    )
-    db.add(periodo)
-    db.flush()
     cabecera = models.HorarioCabecera(
         cod_periodo="2026-II", cod_fac=FACULTAD, cod_esc=ESCUELA, corr_pe=2,
         fecha_creacion=date(2026, 8, 10),
@@ -297,6 +291,73 @@ def insertar_horario_demo(db):
         ))
 
 
+def insertar_periodos_y_ofertas(db):
+    periodos = [
+        ("2024-I", "Semestre académico 2024-I", 2024, "I", date(2024, 3, 18), date(2024, 7, 20), False),
+        ("2024-II", "Semestre académico 2024-II", 2024, "II", date(2024, 8, 19), date(2024, 12, 21), False),
+        ("2025-V", "Ciclo de verano 2025", 2025, "VERANO", date(2025, 1, 6), date(2025, 2, 28), False),
+        ("2025-I", "Semestre académico 2025-I", 2025, "I", date(2025, 3, 17), date(2025, 7, 19), False),
+        ("2025-II", "Semestre académico 2025-II", 2025, "II", date(2025, 8, 18), date(2025, 12, 20), False),
+        ("2026-V", "Ciclo de verano 2026", 2026, "VERANO", date(2026, 1, 5), date(2026, 2, 28), False),
+        ("2026-I", "Semestre académico 2026-I", 2026, "I", date(2026, 3, 16), date(2026, 7, 18), False),
+        ("2026-II", "Semestre académico 2026-II", 2026, "II", date(2026, 8, 17), date(2026, 12, 19), True),
+    ]
+    for codigo, nombre, anio, tipo, inicio, fin, activo in periodos:
+        db.add(models.PeriodoAcademico(
+            cod_periodo=codigo, den_periodo=nombre, anio=anio, tipo_periodo=tipo,
+            fecha_inicio=inicio, fecha_fin=fin, activo=activo,
+        ))
+    db.flush()
+
+    cursos = db.query(models.Curso).all()
+    for codigo, _, _, tipo, *_ in periodos:
+        for item in cursos:
+            if tipo == "I" and item.semestre % 2 == 0:
+                continue
+            if tipo == "II" and item.semestre % 2 != 0:
+                continue
+            if tipo == "VERANO" and item.cod_curso not in {"P19-24", "P19-33", "P19-39", "P19-41"}:
+                continue
+            db.add(models.OfertaCurso(
+                cod_periodo=codigo, cod_fac=item.cod_fac, cod_esc=item.cod_esc,
+                corr_pe=item.corr_pe, cod_curso=item.cod_curso, cod_seccion="A",
+                vacantes=35, activo=True,
+            ))
+    db.flush()
+
+
+def insertar_estudiante_demo(db):
+    estudiante = models.Estudiante(
+        cod_estudiante="20210001", dni="71234567",
+        apellidos_nombres="Pérez Quispe, Juan Carlos",
+        correo="20210001@unfv.edu.pe", cod_fac=FACULTAD, cod_esc=ESCUELA,
+        corr_pe=2, ciclo_actual=6, estado="ACTIVO",
+    )
+    db.add(estudiante)
+    db.flush()
+
+    historial = [
+        ("2024-I", "P19-24", 15, "APROBADO"),
+        ("2025-I", "P19-33", 8, "DESAPROBADO"),
+    ]
+    for periodo, codigo, nota, resultado in historial:
+        oferta = db.query(models.OfertaCurso).filter_by(
+            cod_periodo=periodo, corr_pe=2, cod_curso=codigo, cod_seccion="A",
+        ).one()
+        matricula = models.Matricula(
+            cod_estudiante=estudiante.cod_estudiante, cod_periodo=periodo,
+            cod_fac=FACULTAD, cod_esc=ESCUELA, corr_pe=2,
+            ciclo_matricula=6, fecha_matricula=date(int(periodo[:4]), 3, 10),
+            estado="CERRADA",
+        )
+        db.add(matricula)
+        db.flush()
+        db.add(models.MatriculaDetalle(
+            id_matricula=matricula.id_matricula, id_oferta=oferta.id_oferta,
+            nota_final=nota, resultado=resultado,
+        ))
+
+
 def seed_data(reset=False):
     if reset:
         Base.metadata.drop_all(bind=engine)
@@ -320,9 +381,11 @@ def seed_data(reset=False):
             "fecha_vigencia": date(2019, 1, 1), "fecha_baja": None, "vigente": True,
         }, construir_cursos_2019(), PREREQUISITOS_2019)
         insertar_docentes(db)
+        insertar_periodos_y_ofertas(db)
         insertar_horario_demo(db)
+        insertar_estudiante_demo(db)
         db.commit()
-        print("Datos cargados: 2 mallas, cursos, prerrequisitos, docentes, periodo y horario demostrativo.")
+        print("Datos cargados: mallas, períodos 2024-2026, ofertas, estudiante e historial demostrativo.")
     except Exception:
         db.rollback()
         raise

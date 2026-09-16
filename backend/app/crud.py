@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import HTTPException, status
 from sqlalchemy import and_, case, func, not_, or_
 from sqlalchemy.exc import IntegrityError
@@ -604,3 +606,282 @@ def editar_sesion(db: Session, datos: schemas.SesionEdicion):
         setattr(sesion, campo, valor)
     _commit(db, "No se pudo actualizar la sesión porque sus datos ya existen o se cruzan.")
     return {"mensaje": "Sesión de horario actualizada correctamente."}
+
+
+def get_estudiantes(db: Session, buscar: str | None = None):
+    query = db.query(models.Estudiante, models.PlanEstudio).join(
+        models.PlanEstudio,
+        and_(
+            models.PlanEstudio.cod_fac == models.Estudiante.cod_fac,
+            models.PlanEstudio.cod_esc == models.Estudiante.cod_esc,
+            models.PlanEstudio.corr_pe == models.Estudiante.corr_pe,
+        ),
+    )
+    if buscar:
+        patron = f"%{buscar.strip()}%"
+        query = query.filter(or_(
+            models.Estudiante.cod_estudiante.ilike(patron),
+            models.Estudiante.dni.ilike(patron),
+            models.Estudiante.apellidos_nombres.ilike(patron),
+        ))
+    return [
+        {
+            "cod_estudiante": e.cod_estudiante, "dni": e.dni,
+            "apellidos_nombres": e.apellidos_nombres, "correo": e.correo,
+            "cod_fac": e.cod_fac, "cod_esc": e.cod_esc, "corr_pe": e.corr_pe,
+            "ciclo_actual": e.ciclo_actual, "estado": e.estado, "den_plan": p.den_plan,
+        }
+        for e, p in query.order_by(models.Estudiante.apellidos_nombres).all()
+    ]
+
+
+def crear_estudiante(db: Session, datos: schemas.EstudianteCreate):
+    plan = db.query(models.PlanEstudio).filter_by(
+        cod_fac=datos.cod_fac, cod_esc=datos.cod_esc, corr_pe=datos.corr_pe,
+    ).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="La malla seleccionada no existe.")
+    estudiante = models.Estudiante(**datos.model_dump())
+    db.add(estudiante)
+    _commit(db, "El código, DNI o correo ya pertenece a otro estudiante.")
+    return get_estudiantes(db, datos.cod_estudiante)[0]
+
+
+def editar_estudiante(db: Session, codigo: str, datos: schemas.EstudianteUpdate):
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    plan = db.query(models.PlanEstudio).filter_by(
+        cod_fac=datos.cod_fac, cod_esc=datos.cod_esc, corr_pe=datos.corr_pe,
+    ).first()
+    if not plan:
+        raise HTTPException(status_code=404, detail="La malla seleccionada no existe.")
+    tiene_matriculas = db.query(models.Matricula).filter_by(cod_estudiante=codigo).first()
+    if tiene_matriculas and estudiante.corr_pe != datos.corr_pe:
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede cambiar la malla porque el estudiante ya tiene historial académico.",
+        )
+    for campo, valor in datos.model_dump().items():
+        setattr(estudiante, campo, valor)
+    _commit(db, "El DNI o correo ya pertenece a otro estudiante.")
+    return get_estudiantes(db, codigo)[0]
+
+
+def eliminar_estudiante(db: Session, codigo: str):
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    if db.query(models.Matricula).filter_by(cod_estudiante=codigo).first():
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede eliminar al estudiante porque tiene matrículas registradas.",
+        )
+    db.delete(estudiante)
+    _commit(db, "No se pudo eliminar al estudiante.")
+    return {"mensaje": f"Estudiante {codigo} eliminado correctamente."}
+
+
+def _aprobados_estudiante(db: Session, codigo: str) -> set[str]:
+    return {
+        fila[0]
+        for fila in (
+            db.query(models.OfertaCurso.cod_curso)
+            .join(models.MatriculaDetalle, models.MatriculaDetalle.id_oferta == models.OfertaCurso.id_oferta)
+            .join(models.Matricula, models.Matricula.id_matricula == models.MatriculaDetalle.id_matricula)
+            .filter(
+                models.Matricula.cod_estudiante == codigo,
+                models.MatriculaDetalle.resultado == "APROBADO",
+            )
+            .distinct()
+            .all()
+        )
+    }
+
+
+def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=cod_periodo).first()
+    if not periodo:
+        raise HTTPException(status_code=404, detail="El período académico no existe.")
+
+    aprobados = _aprobados_estudiante(db, codigo)
+    matricula_periodo = db.query(models.Matricula).filter_by(
+        cod_estudiante=codigo, cod_periodo=cod_periodo,
+    ).first()
+    requisitos = db.query(models.CursoPrerequisito).filter_by(
+        cod_fac=estudiante.cod_fac, cod_esc=estudiante.cod_esc, corr_pe=estudiante.corr_pe,
+    ).all()
+    requisitos_por_curso: dict[str, set[str]] = {}
+    for requisito in requisitos:
+        requisitos_por_curso.setdefault(requisito.cod_curso, set()).add(
+            requisito.cod_curso_prerequisito,
+        )
+
+    filas = (
+        db.query(
+            models.OfertaCurso, models.Curso,
+            func.count(models.MatriculaDetalle.id_matricula).label("matriculados"),
+        )
+        .join(models.Curso, and_(
+            models.Curso.cod_fac == models.OfertaCurso.cod_fac,
+            models.Curso.cod_esc == models.OfertaCurso.cod_esc,
+            models.Curso.corr_pe == models.OfertaCurso.corr_pe,
+            models.Curso.cod_curso == models.OfertaCurso.cod_curso,
+        ))
+        .outerjoin(
+            models.MatriculaDetalle,
+            and_(
+                models.MatriculaDetalle.id_oferta == models.OfertaCurso.id_oferta,
+                models.MatriculaDetalle.resultado != "RETIRADO",
+            ),
+        )
+        .filter(
+            models.OfertaCurso.cod_periodo == cod_periodo,
+            models.OfertaCurso.cod_fac == estudiante.cod_fac,
+            models.OfertaCurso.cod_esc == estudiante.cod_esc,
+            models.OfertaCurso.corr_pe == estudiante.corr_pe,
+            models.OfertaCurso.activo.is_(True),
+        )
+        .group_by(models.OfertaCurso.id_oferta, models.Curso.cod_fac,
+                  models.Curso.cod_esc, models.Curso.corr_pe, models.Curso.cod_curso)
+        .order_by(models.Curso.semestre, models.Curso.cod_curso)
+        .all()
+    )
+
+    resultado = []
+    for oferta, curso, matriculados in filas:
+        faltantes = requisitos_por_curso.get(curso.cod_curso, set()) - aprobados
+        motivo = ""
+        if estudiante.estado != "ACTIVO":
+            motivo = "El estudiante no se encuentra activo."
+        elif matricula_periodo:
+            motivo = "El estudiante ya registró su matrícula en este período."
+        elif curso.cod_curso in aprobados:
+            motivo = "Curso aprobado anteriormente."
+        elif curso.semestre > estudiante.ciclo_actual:
+            motivo = "Pertenece a un ciclo posterior."
+        elif faltantes:
+            motivo = "Falta aprobar: " + ", ".join(sorted(faltantes))
+        elif matriculados >= oferta.vacantes:
+            motivo = "No quedan vacantes."
+        resultado.append({
+            "id_oferta": oferta.id_oferta, "cod_periodo": oferta.cod_periodo,
+            "corr_pe": oferta.corr_pe, "cod_curso": oferta.cod_curso,
+            "den_curso": curso.den_curso, "semestre": curso.semestre,
+            "cod_seccion": oferta.cod_seccion, "vacantes": oferta.vacantes,
+            "matriculados": matriculados,
+            "vacantes_disponibles": max(oferta.vacantes - matriculados, 0),
+            "disponible": not motivo, "motivo": motivo,
+        })
+    return resultado
+
+
+def crear_matricula(db: Session, datos: schemas.MatriculaCreate):
+    estudiante = db.query(models.Estudiante).filter_by(
+        cod_estudiante=datos.cod_estudiante,
+    ).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    if db.query(models.Matricula).filter_by(
+        cod_estudiante=datos.cod_estudiante, cod_periodo=datos.cod_periodo,
+    ).first():
+        raise HTTPException(status_code=409, detail="El estudiante ya tiene una matrícula en este período.")
+    if len(datos.ofertas) != len(set(datos.ofertas)):
+        raise HTTPException(status_code=422, detail="No se puede seleccionar dos veces la misma oferta.")
+
+    disponibles = {
+        oferta["id_oferta"]: oferta
+        for oferta in get_ofertas_estudiante(db, datos.cod_estudiante, datos.cod_periodo)
+    }
+    for id_oferta in datos.ofertas:
+        oferta = disponibles.get(id_oferta)
+        if not oferta:
+            raise HTTPException(status_code=422, detail="Una oferta no pertenece a la malla o período seleccionado.")
+        if not oferta["disponible"]:
+            raise HTTPException(
+                status_code=409,
+                detail=f"{oferta['cod_curso']} no puede matricularse: {oferta['motivo']}",
+            )
+
+    matricula = models.Matricula(
+        cod_estudiante=estudiante.cod_estudiante, cod_periodo=datos.cod_periodo,
+        cod_fac=estudiante.cod_fac, cod_esc=estudiante.cod_esc,
+        corr_pe=estudiante.corr_pe, ciclo_matricula=estudiante.ciclo_actual,
+        fecha_matricula=date.today(), estado="REGISTRADA",
+    )
+    db.add(matricula)
+    db.flush()
+    for id_oferta in datos.ofertas:
+        db.add(models.MatriculaDetalle(
+            id_matricula=matricula.id_matricula, id_oferta=id_oferta,
+            resultado="MATRICULADO",
+        ))
+    _commit(db, "No se pudo registrar la matrícula por un conflicto académico.")
+    return next(
+        item for item in get_matriculas_estudiante(db, estudiante.cod_estudiante)
+        if item["id_matricula"] == matricula.id_matricula
+    )
+
+
+def get_matriculas_estudiante(db: Session, codigo: str):
+    if not db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first():
+        raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    matriculas = db.query(models.Matricula).filter_by(cod_estudiante=codigo).order_by(
+        models.Matricula.cod_periodo.desc(),
+    ).all()
+    resultado = []
+    for matricula in matriculas:
+        detalles = (
+            db.query(models.MatriculaDetalle, models.OfertaCurso, models.Curso)
+            .join(models.OfertaCurso, models.OfertaCurso.id_oferta == models.MatriculaDetalle.id_oferta)
+            .join(models.Curso, and_(
+                models.Curso.cod_fac == models.OfertaCurso.cod_fac,
+                models.Curso.cod_esc == models.OfertaCurso.cod_esc,
+                models.Curso.corr_pe == models.OfertaCurso.corr_pe,
+                models.Curso.cod_curso == models.OfertaCurso.cod_curso,
+            ))
+            .filter(models.MatriculaDetalle.id_matricula == matricula.id_matricula)
+            .order_by(models.Curso.semestre, models.Curso.cod_curso)
+            .all()
+        )
+        resultado.append({
+            "id_matricula": matricula.id_matricula,
+            "cod_estudiante": matricula.cod_estudiante,
+            "cod_periodo": matricula.cod_periodo,
+            "ciclo_matricula": matricula.ciclo_matricula,
+            "fecha_matricula": matricula.fecha_matricula,
+            "estado": matricula.estado,
+            "detalles": [{
+                "id_matricula": detalle.id_matricula, "id_oferta": detalle.id_oferta,
+                "cod_periodo": oferta.cod_periodo, "cod_curso": curso.cod_curso,
+                "den_curso": curso.den_curso, "semestre": curso.semestre,
+                "cod_seccion": oferta.cod_seccion, "nota_final": detalle.nota_final,
+                "resultado": detalle.resultado,
+            } for detalle, oferta, curso in detalles],
+        })
+    return resultado
+
+
+def registrar_resultado(
+    db: Session, id_matricula: int, id_oferta: int, datos: schemas.ResultadoUpdate,
+):
+    detalle = db.query(models.MatriculaDetalle).filter_by(
+        id_matricula=id_matricula, id_oferta=id_oferta,
+    ).first()
+    if not detalle:
+        raise HTTPException(status_code=404, detail="El curso matriculado no existe.")
+    if datos.resultado == "APROBADO" and (datos.nota_final is None or datos.nota_final < 11):
+        raise HTTPException(status_code=422, detail="Una nota aprobatoria debe ser mayor o igual a 11.")
+    if datos.resultado == "DESAPROBADO" and (
+        datos.nota_final is None or datos.nota_final >= 11
+    ):
+        raise HTTPException(status_code=422, detail="Una nota desaprobatoria debe estar entre 0 y 10.")
+    if datos.resultado == "MATRICULADO" and datos.nota_final is not None:
+        raise HTTPException(status_code=422, detail="Un curso matriculado aún no debe tener nota final.")
+    detalle.nota_final = datos.nota_final
+    detalle.resultado = datos.resultado
+    _commit(db, "No se pudo actualizar el resultado académico.")
+    return {"mensaje": "Resultado académico actualizado correctamente."}

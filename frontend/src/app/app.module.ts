@@ -11,6 +11,7 @@ import { CatalogComponent } from './pages/catalog/catalog.component';
 import { CourseTableComponent } from './components/course-table/course-table.component';
 import { DocentesComponent } from './pages/docentes/docentes.component';
 import { MantenimientoComponent } from './pages/mantenimiento/mantenimiento.component';
+import { MatriculaComponent } from './pages/matricula/matricula.component';
 
 @NgModule({
   declarations: [
@@ -20,7 +21,8 @@ import { MantenimientoComponent } from './pages/mantenimiento/mantenimiento.comp
     CatalogComponent,
     CourseTableComponent,
     DocentesComponent,
-    MantenimientoComponent
+    MantenimientoComponent,
+    MatriculaComponent
   ],
   imports: [
     BrowserModule,

@@ -122,10 +122,16 @@ class PeriodoAcademico(Base):
     __tablename__ = "periodo_academico"
     cod_periodo = Column(String(10), primary_key=True)
     den_periodo = Column(String(80), nullable=False, unique=True)
+    anio = Column(Integer, nullable=False)
+    tipo_periodo = Column(String(10), nullable=False)
     fecha_inicio = Column(Date, nullable=False)
     fecha_fin = Column(Date, nullable=False)
     activo = Column(Boolean, nullable=False, default=True)
-    __table_args__ = (CheckConstraint("fecha_fin > fecha_inicio", name="ck_periodo_fechas"),)
+    __table_args__ = (
+        CheckConstraint("fecha_fin > fecha_inicio", name="ck_periodo_fechas"),
+        CheckConstraint("anio BETWEEN 2000 AND 2100", name="ck_periodo_anio"),
+        CheckConstraint("tipo_periodo IN ('I', 'II', 'VERANO')", name="ck_periodo_tipo"),
+    )
 
 
 class HorarioCabecera(Base):
@@ -191,4 +197,91 @@ class HorarioCurso(Base):
         CheckConstraint("tipo_sesion IN ('T', 'P')", name="ck_horario_tipo_sesion"),
         CheckConstraint("dia_semana IN ('LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO')", name="ck_horario_dia"),
         CheckConstraint("hora_fin > hora_inicio", name="ck_horario_horas"),
+    )
+
+
+class Estudiante(Base):
+    __tablename__ = "estudiante"
+    cod_estudiante = Column(String(12), primary_key=True)
+    dni = Column(String(8), nullable=False, unique=True)
+    apellidos_nombres = Column(String(160), nullable=False)
+    correo = Column(String(120), nullable=False, unique=True)
+    cod_fac = Column(Integer, nullable=False)
+    cod_esc = Column(Integer, nullable=False)
+    corr_pe = Column(Integer, nullable=False)
+    ciclo_actual = Column(Integer, nullable=False)
+    estado = Column(String(12), nullable=False, default="ACTIVO")
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["cod_fac", "cod_esc", "corr_pe"],
+            ["plan_estudio.cod_fac", "plan_estudio.cod_esc", "plan_estudio.corr_pe"],
+            name="fk_estudiante_plan",
+        ),
+        CheckConstraint("ciclo_actual BETWEEN 1 AND 10", name="ck_estudiante_ciclo"),
+        CheckConstraint("estado IN ('ACTIVO', 'EGRESADO', 'RETIRADO')", name="ck_estudiante_estado"),
+    )
+
+
+class OfertaCurso(Base):
+    __tablename__ = "oferta_curso"
+    id_oferta = Column(Integer, primary_key=True, autoincrement=True)
+    cod_periodo = Column(String(10), ForeignKey("periodo_academico.cod_periodo"), nullable=False)
+    cod_fac = Column(Integer, nullable=False)
+    cod_esc = Column(Integer, nullable=False)
+    corr_pe = Column(Integer, nullable=False)
+    cod_curso = Column(String(20), nullable=False)
+    cod_seccion = Column(String(10), nullable=False, default="A")
+    vacantes = Column(Integer, nullable=False, default=30)
+    activo = Column(Boolean, nullable=False, default=True)
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["cod_fac", "cod_esc", "corr_pe", "cod_curso"],
+            ["curso.cod_fac", "curso.cod_esc", "curso.corr_pe", "curso.cod_curso"],
+            name="fk_oferta_curso",
+        ),
+        UniqueConstraint(
+            "cod_periodo", "cod_fac", "cod_esc", "corr_pe", "cod_curso", "cod_seccion",
+            name="uq_oferta_periodo_curso_seccion",
+        ),
+        CheckConstraint("vacantes > 0", name="ck_oferta_vacantes"),
+    )
+
+
+class Matricula(Base):
+    __tablename__ = "matricula"
+    id_matricula = Column(Integer, primary_key=True, autoincrement=True)
+    cod_estudiante = Column(String(12), ForeignKey("estudiante.cod_estudiante"), nullable=False)
+    cod_periodo = Column(String(10), ForeignKey("periodo_academico.cod_periodo"), nullable=False)
+    cod_fac = Column(Integer, nullable=False)
+    cod_esc = Column(Integer, nullable=False)
+    corr_pe = Column(Integer, nullable=False)
+    ciclo_matricula = Column(Integer, nullable=False)
+    fecha_matricula = Column(Date, nullable=False)
+    estado = Column(String(12), nullable=False, default="REGISTRADA")
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["cod_fac", "cod_esc", "corr_pe"],
+            ["plan_estudio.cod_fac", "plan_estudio.cod_esc", "plan_estudio.corr_pe"],
+            name="fk_matricula_plan",
+        ),
+        UniqueConstraint("cod_estudiante", "cod_periodo", name="uq_matricula_estudiante_periodo"),
+        CheckConstraint("ciclo_matricula BETWEEN 1 AND 10", name="ck_matricula_ciclo"),
+        CheckConstraint("estado IN ('REGISTRADA', 'ANULADA', 'CERRADA')", name="ck_matricula_estado"),
+    )
+
+
+class MatriculaDetalle(Base):
+    __tablename__ = "matricula_detalle"
+    id_matricula = Column(
+        Integer, ForeignKey("matricula.id_matricula", ondelete="CASCADE"), primary_key=True,
+    )
+    id_oferta = Column(Integer, ForeignKey("oferta_curso.id_oferta"), primary_key=True)
+    nota_final = Column(Integer, nullable=True)
+    resultado = Column(String(12), nullable=False, default="MATRICULADO")
+    __table_args__ = (
+        CheckConstraint("nota_final IS NULL OR nota_final BETWEEN 0 AND 20", name="ck_detalle_nota"),
+        CheckConstraint(
+            "resultado IN ('MATRICULADO', 'APROBADO', 'DESAPROBADO', 'RETIRADO')",
+            name="ck_detalle_resultado",
+        ),
     )
