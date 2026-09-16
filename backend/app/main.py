@@ -1,3 +1,4 @@
+import os
 from typing import List
 
 from fastapi import Depends, FastAPI, Query, status
@@ -10,6 +11,13 @@ from app.database import engine, get_db
 
 models.Base.metadata.create_all(bind=engine)
 
+cors_origins = ["http://localhost:4200", "http://127.0.0.1:4200"]
+cors_origins.extend(
+    origin.strip().rstrip("/")
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+)
+
 app = FastAPI(
     title="Sistema de Gestión Académica FIIS",
     description="Consulta de planes, prerrequisitos, programación académica y plana docente.",
@@ -17,7 +25,7 @@ app = FastAPI(
 )
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:4200", "http://127.0.0.1:4200"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface Facultad { cod_fac: number; den_fac: string; }
 export interface Escuela { cod_fac: number; cod_esc: number; den_escuela: string; }
@@ -151,7 +152,7 @@ export interface Mensaje { mensaje: string; }
 
 @Injectable({ providedIn: 'root' })
 export class ApiService {
-  private apiUrl = 'http://localhost:8000';
+  private apiUrl = environment.apiUrl;
   constructor(private http: HttpClient) { }
 
   getPlanes(codFac = 1, codEsc = 1): Observable<PlanEstudio[]> {

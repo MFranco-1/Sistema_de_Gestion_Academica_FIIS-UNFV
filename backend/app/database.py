@@ -8,6 +8,10 @@ SQLALCHEMY_DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql+pg8000://postgres:postgres@localhost:5432/universidad_db",
 )
+if SQLALCHEMY_DATABASE_URL.startswith("postgresql://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+        "postgresql://", "postgresql+pg8000://", 1,
+    )
 
 engine_options = {"pool_pre_ping": True}
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):

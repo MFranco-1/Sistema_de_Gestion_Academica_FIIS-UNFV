@@ -73,6 +73,13 @@ npm start
 
 Interfaz: `http://localhost:4200`.
 
+## Despliegue
+
+- Backend Render: `https://sistema-academico-unfv-api.onrender.com`
+- En Render, `DATABASE_URL` acepta tanto `postgresql://` como `postgresql+pg8000://`.
+- Después de desplegar Vercel, configurar en Render `CORS_ORIGINS=https://TU-PROYECTO.vercel.app`.
+- En Vercel usar `frontend` como Root Directory, `npm run build` y `dist/frontend` como Output Directory.
+
 ## Endpoints principales
 
 ### Consulta
