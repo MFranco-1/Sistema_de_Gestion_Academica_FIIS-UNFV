@@ -128,16 +128,19 @@ def ensure_security_data(db: Session) -> None:
             db.flush()
         perfiles[codigo] = perfil
     admin_name = os.getenv("ADMIN_USERNAME", "admin").strip().lower()
+    configured_password = os.getenv("ADMIN_PASSWORD")
     admin = db.query(models.Usuario).filter_by(nombre_usuario=admin_name).first()
     if not admin:
         admin = models.Usuario(
             nombre_usuario=admin_name,
-            clave_hash=hash_password(os.getenv("ADMIN_PASSWORD", "Admin123*")),
+            clave_hash=hash_password(configured_password or "Admin123*"),
             nombre_mostrar="Administrador FIIS",
             activo=True,
         )
         admin.perfiles = [perfiles[PERFIL_ADMIN]]
         db.add(admin)
+    elif configured_password:
+        admin.clave_hash = hash_password(configured_password)
     db.commit()
 
 
