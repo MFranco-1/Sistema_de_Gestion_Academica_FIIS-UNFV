@@ -384,11 +384,17 @@ def seed_data(reset=False):
     if reset:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    # Una base anterior puede tener perfil sin la columna de permisos.
+    # Migrar antes de consultar perfiles; no elimina ni reinicia datos.
+    with engine.begin() as connection:
+        connection.exec_driver_sql(
+            "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
+        )
     db = SessionLocal()
     try:
         auth.ensure_security_data(db)
         if db.query(models.PlanEstudio).first():
-            print("La base ya contiene planes. Use: python seed_db.py --reset")
+            print("La base ya contiene planes; se conservaron los datos existentes.")
             return
         db.add(models.Facultad(cod_fac=FACULTAD, den_fac="Facultad de Ingeniería Industrial y de Sistemas"))
         db.add(models.Escuela(cod_fac=FACULTAD, cod_esc=ESCUELA, den_escuela="Ingeniería de Sistemas"))
