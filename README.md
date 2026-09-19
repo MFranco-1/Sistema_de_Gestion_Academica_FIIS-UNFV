@@ -95,10 +95,14 @@ Interfaz: `http://localhost:4200`.
 
 ## Despliegue
 
-- Backend Render: `https://sistema-academico-unfv-api.onrender.com`
-- En Render, `DATABASE_URL` acepta tanto `postgresql://` como `postgresql+pg8000://`.
-- Después de desplegar Vercel, configurar en Render `CORS_ORIGINS=https://TU-PROYECTO.vercel.app`.
-- En Vercel usar `frontend` como Root Directory, `npm run build` y `dist/frontend` como Output Directory.
+1. Sube los cambios a GitHub. `frontend/node_modules`, `frontend/dist`, `frontend/.angular` y los archivos `.log` están excluidos por `.gitignore`; no se despliegan.
+2. En Render, crea un **Web Service** Python desde este repositorio con Root Directory `backend`, Build Command `pip install -r requirements.txt` y Start Command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+3. En **Environment** del servicio Render configura `DATABASE_URL` con la **Internal Database URL** de tu PostgreSQL de Render (en la misma región), `AUTH_SECRET` con una clave larga y aleatoria, `ADMIN_PASSWORD` con una clave privada y `CORS_ORIGINS` con la URL exacta que te dé Vercel. La aplicación acepta URLs `postgresql://` y `postgresql+pg8000://`.
+4. Antes de desplegar Vercel, cambia `frontend/src/environments/environment.production.ts` para que `apiUrl` sea la nueva URL pública de Render, sin `/` final. Este valor queda incorporado en el build de Angular; no basta con crear una variable en Vercel.
+5. En Vercel, importa el mismo repositorio como proyecto **Angular** con Root Directory `frontend`, Build Command `npm run build` y Output Directory `dist/frontend`. El archivo `frontend/vercel.json` permite abrir directamente rutas como `/login`.
+6. Comprueba `https://TU-API.onrender.com/`, luego abre la URL de Vercel e inicia sesión. Si cambia el dominio de Vercel, actualiza `CORS_ORIGINS` en Render y vuelve a desplegar el backend.
+
+No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render es nueva, carga `database/01_esquema.sql` y los datos iniciales con `seed_db.py` una sola vez; no repitas la carga sobre una base existente.
 
 ## Endpoints principales
 

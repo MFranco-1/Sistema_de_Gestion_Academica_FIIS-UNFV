@@ -1,13 +1,12 @@
-<router-outlet *ngIf="!auth.autenticado"></router-outlet>
-<div class="app-container" *ngIf="auth.autenticado">
-  <div class="sidebar-container">
+<div [class.app-container]="mostrarPanel">
+  <div class="sidebar-container" *ngIf="mostrarPanel">
     <app-sidebar></app-sidebar>
   </div>
-  <div class="main-container">
-    <div class="topbar-container">
+  <div [class.main-container]="mostrarPanel">
+    <div class="topbar-container" *ngIf="mostrarPanel">
       <app-topbar></app-topbar>
     </div>
-    <div class="content-container">
+    <div [class.content-container]="mostrarPanel">
       <router-outlet></router-outlet>
     </div>
   </div>
