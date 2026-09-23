@@ -825,6 +825,15 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
 
     resultado = []
     for oferta, curso, matriculados in filas:
+        es_pendiente = curso.cod_curso in desaprobados
+        if periodo.tipo_periodo == "VERANO":
+            relevante_periodo = es_pendiente
+        elif periodo.tipo_periodo == "I":
+            relevante_periodo = curso.semestre % 2 == 1
+        else:
+            relevante_periodo = curso.semestre % 2 == 0
+        if not relevante_periodo:
+            continue
         faltantes = requisitos_por_curso.get(curso.cod_curso, set()) - aprobados
         motivo = ""
         if estudiante.estado != "ACTIVO":

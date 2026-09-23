@@ -107,8 +107,6 @@ def migrar_periodos_y_ofertas() -> None:
                 (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion, vacantes, activo)
             SELECT p.cod_periodo, c.cod_fac, c.cod_esc, c.corr_pe, c.cod_curso, 'A', 35, TRUE
             FROM periodo_academico p CROSS JOIN curso c
-            WHERE p.tipo_periodo IN ('I', 'II')
-               OR (p.tipo_periodo = 'VERANO' AND c.cod_curso IN ('P19-24','P19-33','P19-39','P19-41'))
             ON CONFLICT (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion)
             DO NOTHING
         """))
@@ -431,8 +429,6 @@ def insertar_periodos_y_ofertas(db):
     cursos = db.query(models.Curso).all()
     for codigo, _, _, tipo, *_ in periodos:
         for item in cursos:
-            if tipo == "VERANO" and item.cod_curso not in {"P19-24", "P19-33", "P19-39", "P19-41"}:
-                continue
             db.add(models.OfertaCurso(
                 cod_periodo=codigo, cod_fac=item.cod_fac, cod_esc=item.cod_esc,
                 corr_pe=item.corr_pe, cod_curso=item.cod_curso, cod_seccion="A",

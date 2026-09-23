@@ -1,1 +1,15 @@
-.page-header{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--border-color)}.breadcrumbs{color:var(--unfv-maroon);font-size:11px;font-weight:700;text-transform:uppercase}.page-header h1{margin:7px 0 5px;color:var(--unfv-maroon);font:500 28px Georgia,serif}.page-header p{color:var(--text-secondary)}.notice{padding:12px;border-left:4px solid var(--danger-color);background:#fff;color:var(--danger-color)}.malla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.malla article{padding:14px;background:#fff;border:1px solid var(--border-color);border-top:3px solid var(--unfv-gold)}.course-head{display:flex;gap:10px}.course-head span{color:var(--unfv-maroon);font-weight:700}.course-data{display:flex;gap:15px;margin-top:9px;color:var(--text-secondary);font-size:11px}.prereq{margin-top:10px;padding-top:9px;border-top:1px solid #eee9e6;font-size:11px}.prereq b{color:var(--unfv-maroon)}@media(max-width:800px){.malla{grid-template-columns:1fr}}
+.page-header{margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--border-color)}
+.breadcrumbs{color:var(--unfv-maroon);font-size:11px;font-weight:700;text-transform:uppercase}
+.page-header h1{margin:7px 0 5px;color:var(--unfv-maroon);font:600 28px Georgia,serif}
+.page-header p{color:var(--text-secondary)}
+.notice{padding:12px;border-left:4px solid var(--danger-color);background:#fff;color:var(--danger-color)}
+.board-wrap{overflow-x:auto;padding-bottom:14px}
+.malla-board{display:grid;grid-template-columns:repeat(10,minmax(175px,1fr));gap:10px;min-width:1830px;padding:12px;border:1px solid #c8b36b;background:#fff}
+.semester>header{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;padding:7px 5px;border:1px solid #2f2927;background:#f1eee9;text-align:center}
+.semester>header strong{font-size:9px}.semester>header span{font-size:9px;color:var(--text-secondary)}
+.semester article{margin-bottom:8px;border:1px solid #4f4743;background:#fff}
+.course-code{padding:4px 6px;background:#e6c72f;color:#221f1c;font-size:9px;font-weight:800;text-align:center}
+.course-name{display:flex;align-items:center;justify-content:center;min-height:46px;padding:6px;text-align:center;font-size:9px;font-weight:700;line-height:1.3}
+.course-meta{display:flex;justify-content:space-between;padding:4px 6px;border-top:1px solid #bbb3ae;color:#5f5753;font-size:8px;text-transform:capitalize}
+.prereq{padding:5px 6px;border-top:1px solid #bbb3ae;background:#fff9d8;font-size:8px;line-height:1.3}
+.prereq b{color:var(--unfv-maroon)}
