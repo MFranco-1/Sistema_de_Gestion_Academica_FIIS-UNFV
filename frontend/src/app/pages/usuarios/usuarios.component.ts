@@ -10,13 +10,17 @@ export class UsuariosComponent implements OnInit {
   filtro = '';
   formularioVisible = false;
   editandoId?: number;
-  perfilesSeleccionados = new Set<string>(['ESTUDIANTE']);
+  perfilesSeleccionados = new Set<string>(['ADMINISTRADOR']);
   mensaje = '';
   error = '';
   form: UsuarioPayload = this.nuevoUsuario();
 
   constructor(private api: ApiService) {}
-  ngOnInit(): void { this.cargar(); this.api.getEstudiantes().subscribe(data => this.estudiantes = data); this.api.getPerfiles().subscribe(data => this.perfilesDisponibles = data); }
+  ngOnInit(): void {
+    this.cargar();
+    this.api.getEstudiantes().subscribe({ next: data => this.estudiantes = data, error: e => this.mostrarError(e) });
+    this.api.getPerfiles().subscribe({ next: data => this.perfilesDisponibles = data, error: e => this.mostrarError(e) });
+  }
 
   get filtrados(): UsuarioAdministracion[] {
     const term = this.filtro.trim().toLowerCase();
@@ -47,7 +51,15 @@ export class UsuariosComponent implements OnInit {
     if (!confirm(`¿Eliminar al usuario ${usuario.nombre_usuario}?`)) return;
     this.api.eliminarUsuario(usuario.id_usuario).subscribe({ next: data => { this.mensaje = data.mensaje; this.cargar(); }, error: e => this.mostrarError(e) });
   }
-  cancelar(): void { this.formularioVisible = false; this.editandoId = undefined; this.form = this.nuevoUsuario(); this.perfilesSeleccionados = new Set(['ESTUDIANTE']); }
-  private nuevoUsuario(): UsuarioPayload { return { nombre_usuario: '', clave: '', nombre_mostrar: '', perfiles: ['ESTUDIANTE'], activo: true }; }
-  private mostrarError(error: HttpErrorResponse): void { this.mensaje = ''; this.error = error.error?.detail || 'No se pudo completar la operación.'; }
+  cancelar(): void { this.formularioVisible = false; this.editandoId = undefined; this.form = this.nuevoUsuario(); this.perfilesSeleccionados = new Set(['ADMINISTRADOR']); }
+  private nuevoUsuario(): UsuarioPayload { return { nombre_usuario: '', clave: '', nombre_mostrar: '', perfiles: ['ADMINISTRADOR'], activo: true }; }
+  private mostrarError(error: HttpErrorResponse): void {
+    this.mensaje = '';
+    const detalle = error.error?.detail;
+    this.error = typeof detalle === 'string'
+      ? detalle
+      : Array.isArray(detalle)
+        ? detalle.map(item => item?.msg || 'Dato inválido').join(' ')
+        : 'No se pudo completar la operación.';
+  }
 }

@@ -18,10 +18,14 @@ export class MatriculaComponent implements OnInit {
   constructor(private api: ApiService, public auth: AuthService) {}
 
   ngOnInit(): void {
-    this.api.getPeriodos().subscribe(data => {
-      this.periodos = data;
-      this.periodoSeleccionado = data.find(p => p.activo)?.cod_periodo ?? data[0]?.cod_periodo ?? '';
-      this.cargarFicha();
+    this.cargarFicha();
+    this.api.getPeriodos().subscribe({
+      next: data => {
+        this.periodos = data;
+        this.periodoSeleccionado = data.find(p => p.activo)?.cod_periodo ?? data[0]?.cod_periodo ?? '';
+        this.cargarOfertas();
+      },
+      error: error => this.mostrarError(error)
     });
   }
 
@@ -63,5 +67,9 @@ export class MatriculaComponent implements OnInit {
   }
 
   semestreRomano(numero: number): string { return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][numero - 1]; }
-  private mostrarError(error: HttpErrorResponse): void { this.mensaje = ''; this.error = error.error?.detail || 'No se pudo completar la operación.'; }
+  private mostrarError(error: HttpErrorResponse): void {
+    this.mensaje = '';
+    const detalle = error.error?.detail;
+    this.error = typeof detalle === 'string' ? detalle : 'No se pudo completar la operación.';
+  }
 }

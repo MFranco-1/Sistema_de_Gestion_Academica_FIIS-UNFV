@@ -64,7 +64,7 @@
   <div class="section-heading"><div><span>ADMINISTRACIÓN</span><h2>{{ editandoEstudiante ? 'Editar estudiante' : 'Gestión de estudiantes' }}</h2></div></div>
   <div class="section-note">Al registrar un estudiante se crea automáticamente su acceso. El usuario inicial es su código y la contraseña temporal es su DNI.</div>
   <form class="form-grid student-form" (ngSubmit)="guardarEstudiante()">
-    <div class="field"><label>CÓDIGO</label><input name="estCodigo" [(ngModel)]="estudianteForm.cod_estudiante" [disabled]="!!editandoEstudiante" maxlength="12" required></div>
+    <div class="field"><label>CÓDIGO</label><input name="estCodigo" [(ngModel)]="estudianteForm.cod_estudiante" [disabled]="!!editandoEstudiante" minlength="10" maxlength="10" pattern="[0-9]{10}" required></div>
     <div class="field"><label>DNI</label><input name="estDni" [(ngModel)]="estudianteForm.dni" maxlength="8" pattern="[0-9]{8}" required></div>
     <div class="field wide"><label>APELLIDOS Y NOMBRES</label><input name="estNombre" [(ngModel)]="estudianteForm.apellidos_nombres" maxlength="160" required></div>
     <div class="field wide"><label>CORREO INSTITUCIONAL</label><input name="estCorreo" type="email" [(ngModel)]="estudianteForm.correo" required></div>

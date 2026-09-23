@@ -1,12 +1,58 @@
 import argparse
 from datetime import date, time
 
+from sqlalchemy import text
+
 from app import auth, models
 from app.database import Base, SessionLocal, engine
 
 
 FACULTAD = 1
 ESCUELA = 1
+
+CODIGOS_ESTUDIANTE_ANTIGUOS = {
+    "20260001": "2026000001", "20250002": "2025000002",
+    "20250003": "2025000003", "20240004": "2024000004",
+    "20240005": "2024000005", "20230007": "2023000007",
+    "20220008": "2022000008", "20210009": "2021000009",
+    "20200010": "2020000010",
+}
+
+
+def migrar_codigos_estudiante() -> None:
+    """Convierte códigos demo antiguos conservando usuarios y matrículas."""
+    with engine.begin() as connection:
+        for anterior, nuevo in CODIGOS_ESTUDIANTE_ANTIGUOS.items():
+            fila = connection.execute(text(
+                "SELECT dni, correo FROM estudiante WHERE cod_estudiante = :codigo"
+            ), {"codigo": anterior}).mappings().first()
+            if not fila:
+                continue
+            if connection.execute(text(
+                "SELECT 1 FROM estudiante WHERE cod_estudiante = :codigo"
+            ), {"codigo": nuevo}).first():
+                raise RuntimeError(f"Ya existe el código destino {nuevo}; no se modificó {anterior}.")
+            correo_nuevo = f"{nuevo}@unfv.edu.pe" if fila["correo"] == f"{anterior}@unfv.edu.pe" else fila["correo"]
+            connection.execute(text(
+                "UPDATE estudiante SET dni = :dni_tmp, correo = :correo_tmp WHERE cod_estudiante = :anterior"
+            ), {"dni_tmp": "8" + fila["dni"][1:], "correo_tmp": f"{anterior}@migracion.invalid", "anterior": anterior})
+            connection.execute(text("""
+                INSERT INTO estudiante
+                    (cod_estudiante, dni, apellidos_nombres, correo, cod_fac, cod_esc, corr_pe, ciclo_actual, estado)
+                SELECT :nuevo, :dni, apellidos_nombres, :correo, cod_fac, cod_esc, corr_pe, ciclo_actual, estado
+                FROM estudiante WHERE cod_estudiante = :anterior
+            """), {"nuevo": nuevo, "dni": fila["dni"], "correo": correo_nuevo, "anterior": anterior})
+            connection.execute(text(
+                "UPDATE matricula SET cod_estudiante = :nuevo WHERE cod_estudiante = :anterior"
+            ), {"nuevo": nuevo, "anterior": anterior})
+            connection.execute(text("""
+                UPDATE usuario SET cod_estudiante = :nuevo,
+                    nombre_usuario = CASE WHEN nombre_usuario = :anterior THEN :nuevo ELSE nombre_usuario END
+                WHERE cod_estudiante = :anterior
+            """), {"nuevo": nuevo, "anterior": anterior})
+            connection.execute(text(
+                "DELETE FROM estudiante WHERE cod_estudiante = :anterior"
+            ), {"anterior": anterior})
 
 
 def curso(codigo, nombre, semestre, creditos, ht=0, hp=0, tipo="OBLIGATORIO"):
@@ -390,6 +436,7 @@ def seed_data(reset=False):
         connection.exec_driver_sql(
             "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
         )
+    migrar_codigos_estudiante()
     db = SessionLocal()
     try:
         auth.ensure_security_data(db)

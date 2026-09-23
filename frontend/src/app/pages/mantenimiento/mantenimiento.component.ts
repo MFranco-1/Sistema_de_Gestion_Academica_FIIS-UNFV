@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { Component, OnInit } from '@angular/core';
+import { AfterViewInit, Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
 import {
   ApiService, Curso, CursoDetalle, CursoPayload, HorarioDisponible, PeriodoAcademico,
   PlanEstudio, ProgramacionHorario, SesionLocator, SesionPayload, Estudiante,
@@ -12,7 +13,7 @@ import { AuthService } from '../../services/auth.service';
   templateUrl: './mantenimiento.component.html',
   styleUrls: ['./mantenimiento.component.css']
 })
-export class MantenimientoComponent implements OnInit {
+export class MantenimientoComponent implements OnInit, AfterViewInit {
   planes: PlanEstudio[] = [];
   semestres: number[] = [];
   cursos: Curso[] = [];
@@ -36,7 +37,15 @@ export class MantenimientoComponent implements OnInit {
   cursoForm: CursoPayload = this.nuevoCurso();
   sesionForm: SesionPayload = this.nuevaSesion();
 
-  constructor(private api: ApiService, public auth: AuthService) {}
+  constructor(private api: ApiService, public auth: AuthService, private route: ActivatedRoute) {}
+
+  ngAfterViewInit(): void {
+    this.route.fragment.subscribe(fragment => {
+      if (fragment) {
+        setTimeout(() => document.getElementById(fragment)?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      }
+    });
+  }
 
   ngOnInit(): void {
     if (this.auth.puede('GESTION_ESTUDIANTES')) this.cargarEstudiantes();
