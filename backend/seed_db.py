@@ -55,6 +55,51 @@ def migrar_codigos_estudiante() -> None:
             ), {"anterior": anterior})
 
 
+def migrar_periodos_y_ofertas() -> None:
+    """Completa la estructura y datos de matrícula en bases anteriores."""
+    with engine.begin() as connection:
+        connection.exec_driver_sql("ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS anio INTEGER")
+        connection.exec_driver_sql("ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS tipo_periodo VARCHAR(10)")
+        connection.execute(text("""
+            UPDATE periodo_academico
+            SET anio = CAST(SUBSTRING(cod_periodo FROM 1 FOR 4) AS INTEGER),
+                tipo_periodo = CASE
+                    WHEN cod_periodo LIKE '%-II' THEN 'II'
+                    WHEN cod_periodo LIKE '%-I' THEN 'I'
+                    ELSE 'VERANO'
+                END
+            WHERE anio IS NULL OR tipo_periodo IS NULL
+        """))
+        connection.exec_driver_sql("ALTER TABLE periodo_academico ALTER COLUMN anio SET NOT NULL")
+        connection.exec_driver_sql("ALTER TABLE periodo_academico ALTER COLUMN tipo_periodo SET NOT NULL")
+        connection.execute(text("""
+            INSERT INTO periodo_academico
+                (cod_periodo, den_periodo, anio, tipo_periodo, fecha_inicio, fecha_fin, activo)
+            VALUES
+                ('2024-I','Semestre académico 2024-I',2024,'I','2024-03-18','2024-07-20',FALSE),
+                ('2024-II','Semestre académico 2024-II',2024,'II','2024-08-19','2024-12-21',FALSE),
+                ('2025-V','Ciclo de verano 2025',2025,'VERANO','2025-01-06','2025-02-28',FALSE),
+                ('2025-I','Semestre académico 2025-I',2025,'I','2025-03-17','2025-07-19',FALSE),
+                ('2025-II','Semestre académico 2025-II',2025,'II','2025-08-18','2025-12-20',FALSE),
+                ('2026-V','Ciclo de verano 2026',2026,'VERANO','2026-01-05','2026-02-28',FALSE),
+                ('2026-I','Semestre académico 2026-I',2026,'I','2026-03-16','2026-07-18',FALSE),
+                ('2026-II','Semestre académico 2026-II',2026,'II','2026-08-17','2026-12-19',TRUE)
+            ON CONFLICT (cod_periodo) DO UPDATE
+            SET anio = EXCLUDED.anio, tipo_periodo = EXCLUDED.tipo_periodo
+        """))
+        connection.execute(text("""
+            INSERT INTO oferta_curso
+                (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion, vacantes, activo)
+            SELECT p.cod_periodo, c.cod_fac, c.cod_esc, c.corr_pe, c.cod_curso, 'A', 35, TRUE
+            FROM periodo_academico p CROSS JOIN curso c
+            WHERE (p.tipo_periodo = 'I' AND MOD(c.semestre, 2) = 1)
+               OR (p.tipo_periodo = 'II' AND MOD(c.semestre, 2) = 0)
+               OR (p.tipo_periodo = 'VERANO' AND c.cod_curso IN ('P19-24','P19-33','P19-39','P19-41'))
+            ON CONFLICT (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion)
+            DO NOTHING
+        """))
+
+
 def curso(codigo, nombre, semestre, creditos, ht=0, hp=0, tipo="OBLIGATORIO"):
     return {
         "cod_curso": str(codigo), "den_curso": nombre, "semestre": semestre,
@@ -436,6 +481,7 @@ def seed_data(reset=False):
         connection.exec_driver_sql(
             "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
         )
+    migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()
     db = SessionLocal()
     try:
