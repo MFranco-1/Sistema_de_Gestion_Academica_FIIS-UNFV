@@ -31,7 +31,7 @@ export class MatriculaComponent implements OnInit {
 
   cargarFicha(): void {
     this.api.getMiEstudiante().subscribe({
-      next: estudiante => { this.estudiante = estudiante; this.cargando = false; this.cargarOfertas(); this.cargarHistorial(); },
+      next: estudiante => { this.estudiante = estudiante; this.cargando = false; this.cargarOfertas(); },
       error: error => { this.cargando = false; this.mostrarError(error); }
     });
   }
@@ -61,12 +61,15 @@ export class MatriculaComponent implements OnInit {
     if (!this.estudiante || !this.seleccionadas.size) return;
     this.mensaje = ''; this.error = '';
     this.api.crearMatricula(this.estudiante.cod_estudiante, this.periodoSeleccionado, [...this.seleccionadas]).subscribe({
-      next: () => { this.mensaje = 'Matrícula registrada correctamente.'; this.cargarOfertas(); this.cargarHistorial(); },
+      next: () => { this.mensaje = 'Matrícula registrada correctamente.'; this.cargarFicha(); },
       error: error => this.mostrarError(error)
     });
   }
 
   semestreRomano(numero: number): string { return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][numero - 1]; }
+  get creditosSeleccionados(): number {
+    return this.ofertas.filter(item => this.seleccionadas.has(item.id_oferta)).reduce((total, item) => total + item.cred, 0);
+  }
   private mostrarError(error: HttpErrorResponse): void {
     this.mensaje = '';
     const detalle = error.error?.detail;

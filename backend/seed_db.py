@@ -76,6 +76,7 @@ def migrar_periodos_y_ofertas() -> None:
             INSERT INTO periodo_academico
                 (cod_periodo, den_periodo, anio, tipo_periodo, fecha_inicio, fecha_fin, activo)
             VALUES
+                ('2024-V','Ciclo de verano 2024',2024,'VERANO','2024-01-08','2024-02-29',FALSE),
                 ('2024-I','Semestre académico 2024-I',2024,'I','2024-03-18','2024-07-20',FALSE),
                 ('2024-II','Semestre académico 2024-II',2024,'II','2024-08-19','2024-12-21',FALSE),
                 ('2025-V','Ciclo de verano 2025',2025,'VERANO','2025-01-06','2025-02-28',FALSE),
@@ -106,8 +107,7 @@ def migrar_periodos_y_ofertas() -> None:
                 (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion, vacantes, activo)
             SELECT p.cod_periodo, c.cod_fac, c.cod_esc, c.corr_pe, c.cod_curso, 'A', 35, TRUE
             FROM periodo_academico p CROSS JOIN curso c
-            WHERE (p.tipo_periodo = 'I' AND MOD(c.semestre, 2) = 1)
-               OR (p.tipo_periodo = 'II' AND MOD(c.semestre, 2) = 0)
+            WHERE p.tipo_periodo IN ('I', 'II')
                OR (p.tipo_periodo = 'VERANO' AND c.cod_curso IN ('P19-24','P19-33','P19-39','P19-41'))
             ON CONFLICT (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion)
             DO NOTHING
@@ -411,6 +411,7 @@ def insertar_horario_demo(db):
 
 def insertar_periodos_y_ofertas(db):
     periodos = [
+        ("2024-V", "Ciclo de verano 2024", 2024, "VERANO", date(2024, 1, 8), date(2024, 2, 29), False),
         ("2024-I", "Semestre académico 2024-I", 2024, "I", date(2024, 3, 18), date(2024, 7, 20), False),
         ("2024-II", "Semestre académico 2024-II", 2024, "II", date(2024, 8, 19), date(2024, 12, 21), False),
         ("2025-V", "Ciclo de verano 2025", 2025, "VERANO", date(2025, 1, 6), date(2025, 2, 28), False),
@@ -430,10 +431,6 @@ def insertar_periodos_y_ofertas(db):
     cursos = db.query(models.Curso).all()
     for codigo, _, _, tipo, *_ in periodos:
         for item in cursos:
-            if tipo == "I" and item.semestre % 2 == 0:
-                continue
-            if tipo == "II" and item.semestre % 2 != 0:
-                continue
             if tipo == "VERANO" and item.cod_curso not in {"P19-24", "P19-33", "P19-39", "P19-41"}:
                 continue
             db.add(models.OfertaCurso(

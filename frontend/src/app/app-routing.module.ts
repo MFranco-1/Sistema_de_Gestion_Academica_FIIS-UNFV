@@ -9,6 +9,8 @@ import { AdminGuard, AuthGuard, LoginGuard, StudentGuard } from './services/auth
 import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 import { PerfilesComponent } from './pages/perfiles/perfiles.component';
 import { GestionMatriculasComponent } from './pages/gestion-matriculas/gestion-matriculas.component';
+import { HistorialComponent } from './pages/historial/historial.component';
+import { MiMallaComponent } from './pages/mi-malla/mi-malla.component';
 
 const routes: Routes = [
   { path: 'login', component: LoginComponent, canActivate: [LoginGuard] },
@@ -19,6 +21,8 @@ const routes: Routes = [
   { path: 'admin/perfiles', component: PerfilesComponent, canActivate: [AuthGuard, AdminGuard], data: { permiso: 'GESTION_PERFILES' } },
   { path: 'admin/matriculas', component: GestionMatriculasComponent, canActivate: [AuthGuard, AdminGuard], data: { permiso: 'GESTION_MATRICULAS' } },
   { path: 'matricula', component: MatriculaComponent, canActivate: [AuthGuard, StudentGuard] },
+  { path: 'historial', component: HistorialComponent, canActivate: [AuthGuard, StudentGuard] },
+  { path: 'mi-malla', component: MiMallaComponent, canActivate: [AuthGuard, StudentGuard] },
   { path: '', redirectTo: '/login', pathMatch: 'full' },
   { path: '**', redirectTo: '/login' }
 ];

@@ -17,6 +17,8 @@ import { AuthInterceptor } from './services/auth.interceptor';
 import { UsuariosComponent } from './pages/usuarios/usuarios.component';
 import { PerfilesComponent } from './pages/perfiles/perfiles.component';
 import { GestionMatriculasComponent } from './pages/gestion-matriculas/gestion-matriculas.component';
+import { HistorialComponent } from './pages/historial/historial.component';
+import { MiMallaComponent } from './pages/mi-malla/mi-malla.component';
 
 @NgModule({
   declarations: [
@@ -31,7 +33,9 @@ import { GestionMatriculasComponent } from './pages/gestion-matriculas/gestion-m
     LoginComponent,
     UsuariosComponent,
     PerfilesComponent,
-    GestionMatriculasComponent
+    GestionMatriculasComponent,
+    HistorialComponent,
+    MiMallaComponent
   ],
   imports: [
     BrowserModule,

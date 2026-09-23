@@ -163,9 +163,12 @@ export interface Estudiante {
   ciclo_actual: number;
   estado: 'ACTIVO' | 'EGRESADO' | 'RETIRADO';
   den_plan: string;
+  anio_ingreso: number;
+  creditos_aprobados: number;
+  creditos_matriculados: number;
 }
 
-export type EstudiantePayload = Omit<Estudiante, 'den_plan'>;
+export type EstudiantePayload = Omit<Estudiante, 'den_plan' | 'anio_ingreso' | 'creditos_aprobados' | 'creditos_matriculados'>;
 
 export interface OfertaCurso {
   id_oferta: number;
@@ -174,6 +177,7 @@ export interface OfertaCurso {
   cod_curso: string;
   den_curso: string;
   semestre: number;
+  cred: number;
   cod_seccion: string;
   vacantes: number;
   matriculados: number;

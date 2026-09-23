@@ -624,18 +624,52 @@ def get_estudiantes(db: Session, buscar: str | None = None):
             models.Estudiante.dni.ilike(patron),
             models.Estudiante.apellidos_nombres.ilike(patron),
         ))
-    return [
-        {
+    resultado = []
+    for e, p in query.order_by(models.Estudiante.apellidos_nombres).all():
+        creditos_aprobados = db.query(func.coalesce(func.sum(models.Curso.cred), 0)).select_from(
+            models.MatriculaDetalle
+        ).join(models.Matricula, models.Matricula.id_matricula == models.MatriculaDetalle.id_matricula).join(
+            models.OfertaCurso, models.OfertaCurso.id_oferta == models.MatriculaDetalle.id_oferta
+        ).join(models.Curso, and_(
+            models.Curso.cod_fac == models.OfertaCurso.cod_fac,
+            models.Curso.cod_esc == models.OfertaCurso.cod_esc,
+            models.Curso.corr_pe == models.OfertaCurso.corr_pe,
+            models.Curso.cod_curso == models.OfertaCurso.cod_curso,
+        )).filter(
+            models.Matricula.cod_estudiante == e.cod_estudiante,
+            models.MatriculaDetalle.resultado == "APROBADO",
+        ).scalar() or 0
+        creditos_matriculados = db.query(func.coalesce(func.sum(models.Curso.cred), 0)).select_from(
+            models.MatriculaDetalle
+        ).join(models.Matricula, models.Matricula.id_matricula == models.MatriculaDetalle.id_matricula).join(
+            models.OfertaCurso, models.OfertaCurso.id_oferta == models.MatriculaDetalle.id_oferta
+        ).join(models.Curso, and_(
+            models.Curso.cod_fac == models.OfertaCurso.cod_fac,
+            models.Curso.cod_esc == models.OfertaCurso.cod_esc,
+            models.Curso.corr_pe == models.OfertaCurso.corr_pe,
+            models.Curso.cod_curso == models.OfertaCurso.cod_curso,
+        )).filter(
+            models.Matricula.cod_estudiante == e.cod_estudiante,
+            models.MatriculaDetalle.resultado == "MATRICULADO",
+        ).scalar() or 0
+        resultado.append({
             "cod_estudiante": e.cod_estudiante, "dni": e.dni,
             "apellidos_nombres": e.apellidos_nombres, "correo": e.correo,
             "cod_fac": e.cod_fac, "cod_esc": e.cod_esc, "corr_pe": e.corr_pe,
             "ciclo_actual": e.ciclo_actual, "estado": e.estado, "den_plan": p.den_plan,
-        }
-        for e, p in query.order_by(models.Estudiante.apellidos_nombres).all()
-    ]
+            "anio_ingreso": int(e.correo[:4]) if e.correo[:4].isdigit() else int(e.cod_estudiante[:4]),
+            "creditos_aprobados": int(creditos_aprobados),
+            "creditos_matriculados": int(creditos_matriculados),
+        })
+    return resultado
 
 
 def crear_estudiante(db: Session, datos: schemas.EstudianteCreate):
+    if datos.correo[:4] != datos.cod_estudiante[:4]:
+        raise HTTPException(
+            status_code=422,
+            detail="Los primeros cuatro dígitos del correo deben coincidir con el año de ingreso indicado en el código.",
+        )
     plan = db.query(models.PlanEstudio).filter_by(
         cod_fac=datos.cod_fac, cod_esc=datos.cod_esc, corr_pe=datos.corr_pe,
     ).first()
@@ -660,6 +694,11 @@ def editar_estudiante(db: Session, codigo: str, datos: schemas.EstudianteUpdate)
     estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
     if not estudiante:
         raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    if datos.correo[:4] != codigo[:4]:
+        raise HTTPException(
+            status_code=422,
+            detail="Los primeros cuatro dígitos del correo deben coincidir con el año de ingreso del estudiante.",
+        )
     plan = db.query(models.PlanEstudio).filter_by(
         cod_fac=datos.cod_fac, cod_esc=datos.cod_esc, corr_pe=datos.corr_pe,
     ).first()
@@ -732,6 +771,13 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
         raise HTTPException(status_code=404, detail="El período académico no existe.")
 
     aprobados = _aprobados_estudiante(db, codigo)
+    desaprobados = {
+        fila[0] for fila in db.query(models.OfertaCurso.cod_curso)
+        .join(models.MatriculaDetalle, models.MatriculaDetalle.id_oferta == models.OfertaCurso.id_oferta)
+        .join(models.Matricula, models.Matricula.id_matricula == models.MatriculaDetalle.id_matricula)
+        .filter(models.Matricula.cod_estudiante == codigo,
+                models.MatriculaDetalle.resultado == "DESAPROBADO").distinct().all()
+    }
     matricula_periodo = db.query(models.Matricula).filter_by(
         cod_estudiante=codigo, cod_periodo=cod_periodo,
     ).first()
@@ -768,6 +814,8 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
             models.OfertaCurso.cod_esc == estudiante.cod_esc,
             models.OfertaCurso.corr_pe == estudiante.corr_pe,
             models.OfertaCurso.activo.is_(True),
+            or_(models.Curso.semestre == estudiante.ciclo_actual,
+                models.Curso.cod_curso.in_(desaprobados)),
         )
         .group_by(models.OfertaCurso.id_oferta, models.Curso.cod_fac,
                   models.Curso.cod_esc, models.Curso.corr_pe, models.Curso.cod_curso)
@@ -795,6 +843,7 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
             "id_oferta": oferta.id_oferta, "cod_periodo": oferta.cod_periodo,
             "corr_pe": oferta.corr_pe, "cod_curso": oferta.cod_curso,
             "den_curso": curso.den_curso, "semestre": curso.semestre,
+            "cred": curso.cred,
             "cod_seccion": oferta.cod_seccion, "vacantes": oferta.vacantes,
             "matriculados": matriculados,
             "vacantes_disponibles": max(oferta.vacantes - matriculados, 0),
@@ -893,6 +942,7 @@ def registrar_resultado(
     db: Session, id_matricula: int, id_oferta: int, datos: schemas.ResultadoUpdate,
 ):
     _aplicar_resultado(db, id_matricula, id_oferta, datos)
+    _cerrar_matricula_si_corresponde(db, id_matricula)
     _commit(db, "No se pudo actualizar el resultado académico.")
     return {"mensaje": "Resultado académico actualizado correctamente."}
 
@@ -924,8 +974,25 @@ def registrar_resultados_lote(
         raise HTTPException(status_code=422, detail="No se puede repetir un curso en la actualización.")
     for item in datos.resultados:
         _aplicar_resultado(db, id_matricula, item.id_oferta, item)
+    _cerrar_matricula_si_corresponde(db, id_matricula)
     _commit(db, "No se pudieron guardar todos los resultados académicos.")
     return {"mensaje": "Notas y resultados guardados correctamente."}
+
+
+def _cerrar_matricula_si_corresponde(db: Session, id_matricula: int) -> None:
+    matricula = db.query(models.Matricula).filter_by(id_matricula=id_matricula).first()
+    if not matricula or matricula.estado == "CERRADA":
+        return
+    detalles = db.query(models.MatriculaDetalle).filter_by(id_matricula=id_matricula).all()
+    if not detalles or any(item.resultado == "MATRICULADO" for item in detalles):
+        return
+    matricula.estado = "CERRADA"
+    if any(item.resultado == "APROBADO" for item in detalles):
+        estudiante = db.query(models.Estudiante).filter_by(
+            cod_estudiante=matricula.cod_estudiante,
+        ).first()
+        if estudiante and estudiante.ciclo_actual < 10:
+            estudiante.ciclo_actual += 1
 
 
 def _usuario_dict(usuario: models.Usuario):

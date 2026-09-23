@@ -278,6 +278,9 @@ class Estudiante(EstudianteBase):
     # para que uno antiguo no impida listar y administrar a todos los alumnos.
     cod_estudiante: str
     den_plan: str = ""
+    anio_ingreso: int = 0
+    creditos_aprobados: int = 0
+    creditos_matriculados: int = 0
     class Config:
         from_attributes = True
 
@@ -289,6 +292,7 @@ class OfertaCurso(BaseModel):
     cod_curso: str
     den_curso: str
     semestre: int
+    cred: int
     cod_seccion: str
     vacantes: int
     matriculados: int

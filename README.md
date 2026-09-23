@@ -11,6 +11,9 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Mantenimiento transaccional de cursos, prerrequisitos y sesiones de horario.
 - CRUD de estudiantes y asignación de malla y ciclo académico.
 - Matrícula validada por oferta anual, período I/II/verano, historial y prerrequisitos.
+- Portal estudiantil con Mi matrícula, Historial y Mi malla; muestra créditos y prerrequisitos aplicables.
+- Períodos académicos futuros y ofertas generados de forma incremental, incluyendo verano 2024.
+- Cierre de notas en lote: 0–10 desaprobado, 11–20 aprobado y avance automático de ciclo cuando corresponde.
 - Registro de notas y resultados para cursos aprobados, desaprobados o retirados.
 - Login institucional con perfiles Administrador y Estudiante, cambio de perfil dentro del panel y permisos por endpoint.
 - Administración separada de usuarios y perfiles, con activación de cuentas, vínculo con estudiantes y nombres de perfil editables.
@@ -125,6 +128,7 @@ No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render 
 - `GET /estudiantes/{codigo}/matriculas`
 - `POST /matriculas/`
 - `PUT /matriculas/{id}/ofertas/{id_oferta}/resultado`
+- `PUT /matriculas/{id}/resultados`
 
 ### Mantenimiento
 
