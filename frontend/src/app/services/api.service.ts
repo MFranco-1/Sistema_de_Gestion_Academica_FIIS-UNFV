@@ -373,6 +373,17 @@ export class ApiService {
     );
   }
 
+  registrarResultadosLote(idMatricula: number, detalles: MatriculaDetalle[]): Observable<Mensaje> {
+    return this.http.put<Mensaje>(
+      `${this.apiUrl}/matriculas/${idMatricula}/resultados`,
+      { resultados: detalles.map(item => ({
+        id_oferta: item.id_oferta,
+        nota_final: item.nota_final ?? null,
+        resultado: item.resultado
+      })) }
+    );
+  }
+
   getMiEstudiante(): Observable<Estudiante> {
     return this.http.get<Estudiante>(`${this.apiUrl}/estudiantes/me`);
   }

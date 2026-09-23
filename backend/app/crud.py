@@ -892,23 +892,40 @@ def get_matriculas_estudiante(db: Session, codigo: str):
 def registrar_resultado(
     db: Session, id_matricula: int, id_oferta: int, datos: schemas.ResultadoUpdate,
 ):
+    _aplicar_resultado(db, id_matricula, id_oferta, datos)
+    _commit(db, "No se pudo actualizar el resultado académico.")
+    return {"mensaje": "Resultado académico actualizado correctamente."}
+
+
+def _aplicar_resultado(
+    db: Session, id_matricula: int, id_oferta: int, datos: schemas.ResultadoUpdate,
+):
     detalle = db.query(models.MatriculaDetalle).filter_by(
         id_matricula=id_matricula, id_oferta=id_oferta,
     ).first()
     if not detalle:
         raise HTTPException(status_code=404, detail="El curso matriculado no existe.")
-    if datos.resultado == "APROBADO" and (datos.nota_final is None or datos.nota_final < 11):
-        raise HTTPException(status_code=422, detail="Una nota aprobatoria debe ser mayor o igual a 11.")
-    if datos.resultado == "DESAPROBADO" and (
-        datos.nota_final is None or datos.nota_final >= 11
-    ):
-        raise HTTPException(status_code=422, detail="Una nota desaprobatoria debe estar entre 0 y 10.")
-    if datos.resultado == "MATRICULADO" and datos.nota_final is not None:
-        raise HTTPException(status_code=422, detail="Un curso matriculado aún no debe tener nota final.")
-    detalle.nota_final = datos.nota_final
-    detalle.resultado = datos.resultado
-    _commit(db, "No se pudo actualizar el resultado académico.")
-    return {"mensaje": "Resultado académico actualizado correctamente."}
+    if datos.resultado == "RETIRADO":
+        detalle.nota_final = None
+        detalle.resultado = "RETIRADO"
+    elif datos.nota_final is None:
+        detalle.nota_final = None
+        detalle.resultado = "MATRICULADO"
+    else:
+        detalle.nota_final = datos.nota_final
+        detalle.resultado = "APROBADO" if datos.nota_final >= 11 else "DESAPROBADO"
+
+
+def registrar_resultados_lote(
+    db: Session, id_matricula: int, datos: schemas.ResultadosLoteUpdate,
+):
+    ids = [item.id_oferta for item in datos.resultados]
+    if len(ids) != len(set(ids)):
+        raise HTTPException(status_code=422, detail="No se puede repetir un curso en la actualización.")
+    for item in datos.resultados:
+        _aplicar_resultado(db, id_matricula, item.id_oferta, item)
+    _commit(db, "No se pudieron guardar todos los resultados académicos.")
+    return {"mensaje": "Notas y resultados guardados correctamente."}
 
 
 def _usuario_dict(usuario: models.Usuario):

@@ -87,6 +87,20 @@ def migrar_periodos_y_ofertas() -> None:
             ON CONFLICT (cod_periodo) DO UPDATE
             SET anio = EXCLUDED.anio, tipo_periodo = EXCLUDED.tipo_periodo
         """))
+        # Mantener siempre disponibles los dos años académicos siguientes.
+        for anio in range(2027, date.today().year + 3):
+            periodos_futuros = (
+                (f"{anio}-V", f"Ciclo de verano {anio}", "VERANO", f"{anio}-01-05", f"{anio}-02-28"),
+                (f"{anio}-I", f"Semestre académico {anio}-I", "I", f"{anio}-03-15", f"{anio}-07-20"),
+                (f"{anio}-II", f"Semestre académico {anio}-II", "II", f"{anio}-08-15", f"{anio}-12-20"),
+            )
+            for codigo, nombre, tipo, inicio, fin in periodos_futuros:
+                connection.execute(text("""
+                    INSERT INTO periodo_academico
+                        (cod_periodo, den_periodo, anio, tipo_periodo, fecha_inicio, fecha_fin, activo)
+                    VALUES (:codigo, :nombre, :anio, :tipo, :inicio, :fin, FALSE)
+                    ON CONFLICT (cod_periodo) DO NOTHING
+                """), {"codigo": codigo, "nombre": nombre, "anio": anio, "tipo": tipo, "inicio": inicio, "fin": fin})
         connection.execute(text("""
             INSERT INTO oferta_curso
                 (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion, vacantes, activo)
@@ -98,6 +112,19 @@ def migrar_periodos_y_ofertas() -> None:
             ON CONFLICT (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion)
             DO NOTHING
         """))
+
+
+def inicializar_estudiantes_primer_ciclo() -> None:
+    """Normaliza una sola vez los estudiantes actuales al primer ciclo."""
+    with engine.begin() as connection:
+        marca = connection.execute(text(
+            "SELECT obj_description('estudiante'::regclass, 'pg_class')"
+        )).scalar()
+        if marca != "ciclos_inicializados_2026":
+            connection.exec_driver_sql("UPDATE estudiante SET ciclo_actual = 1")
+            connection.exec_driver_sql(
+                "COMMENT ON TABLE estudiante IS 'ciclos_inicializados_2026'"
+            )
 
 
 def curso(codigo, nombre, semestre, creditos, ht=0, hp=0, tipo="OBLIGATORIO"):
@@ -483,6 +510,7 @@ def seed_data(reset=False):
         )
     migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()
+    inicializar_estudiantes_primer_ciclo()
     db = SessionLocal()
     try:
         auth.ensure_security_data(db)

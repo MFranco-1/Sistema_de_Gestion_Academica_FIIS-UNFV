@@ -316,6 +316,14 @@ class ResultadoUpdate(BaseModel):
         return valor
 
 
+class ResultadoLoteItem(ResultadoUpdate):
+    id_oferta: int
+
+
+class ResultadosLoteUpdate(BaseModel):
+    resultados: list[ResultadoLoteItem] = Field(min_length=1)
+
+
 class MatriculaDetalle(BaseModel):
     id_matricula: int
     id_oferta: int

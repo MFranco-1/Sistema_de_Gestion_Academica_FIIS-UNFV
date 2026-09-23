@@ -23,9 +23,15 @@ export class GestionMatriculasComponent implements OnInit {
     });
   }
   seleccionar(): void {
+    this.codigo = this.codigo.trim();
     this.estudiante = this.estudiantes.find(e => e.cod_estudiante === this.codigo);
     this.ofertas = []; this.matriculas = []; this.seleccionadas.clear();
-    if (this.estudiante) { this.cargarOfertas(); this.cargarHistorial(); }
+    if (this.estudiante) {
+      this.error = '';
+      this.cargarOfertas(); this.cargarHistorial();
+    } else {
+      this.error = this.codigo ? 'No se encontró un estudiante con ese código.' : 'Ingrese un código de estudiante.';
+    }
   }
   cargarOfertas(): void {
     if (!this.estudiante || !this.periodo) return;
@@ -44,6 +50,27 @@ export class GestionMatriculasComponent implements OnInit {
   guardarResultado(detalle: MatriculaDetalle): void {
     const nota = detalle.nota_final === null || detalle.nota_final === undefined ? undefined : Number(detalle.nota_final);
     this.api.registrarResultado(detalle.id_matricula, detalle.id_oferta, nota, detalle.resultado).subscribe({ next: data => { this.mensaje = data.mensaje; this.cargarHistorial(); }, error: e => this.mostrarError(e) });
+  }
+  actualizarResultado(detalle: MatriculaDetalle): void {
+    if (detalle.nota_final === null || detalle.nota_final === undefined) {
+      if (detalle.resultado !== 'RETIRADO') detalle.resultado = 'MATRICULADO';
+      return;
+    }
+    detalle.resultado = Number(detalle.nota_final) >= 11 ? 'APROBADO' : 'DESAPROBADO';
+  }
+  cambiarResultadoManual(detalle: MatriculaDetalle): void {
+    if (detalle.resultado === 'MATRICULADO' || detalle.resultado === 'RETIRADO') {
+      detalle.nota_final = undefined;
+    } else {
+      this.actualizarResultado(detalle);
+    }
+  }
+  guardarTodos(matricula: MatriculaResumen): void {
+    this.mensaje = ''; this.error = '';
+    this.api.registrarResultadosLote(matricula.id_matricula, matricula.detalles).subscribe({
+      next: data => { this.mensaje = data.mensaje; this.cargarHistorial(); },
+      error: e => this.mostrarError(e)
+    });
   }
   romano(n: number): string { return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][n - 1]; }
   private mostrarError(error: HttpErrorResponse): void {

@@ -330,6 +330,15 @@ def update_resultado(
     return crud.registrar_resultado(db, id_matricula, id_oferta, datos)
 
 
+@app.put("/matriculas/{id_matricula}/resultados", response_model=schemas.Mensaje)
+def update_resultados_lote(
+    id_matricula: int, datos: schemas.ResultadosLoteUpdate,
+    db: Session = Depends(get_db),
+    _: auth.UsuarioActual = Depends(auth.require_permission("GESTION_MATRICULAS")),
+):
+    return crud.registrar_resultados_lote(db, id_matricula, datos)
+
+
 @app.get("/usuarios/", response_model=List[schemas.UsuarioAdministracion])
 def read_usuarios(db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_USUARIOS"))):
     return crud.get_usuarios(db)
