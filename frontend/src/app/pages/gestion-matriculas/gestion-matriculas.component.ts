@@ -17,7 +17,10 @@ export class GestionMatriculasComponent implements OnInit {
   constructor(private api: ApiService) {}
   ngOnInit(): void {
     this.api.getEstudiantes().subscribe({ next: data => this.estudiantes = data, error: e => this.mostrarError(e) });
-    this.api.getPeriodos().subscribe(data => { this.periodos = data; this.periodo = data.find(p => p.activo)?.cod_periodo || data[0]?.cod_periodo || ''; });
+    this.api.getPeriodos().subscribe({
+      next: data => { this.periodos = data; this.periodo = data.find(p => p.activo)?.cod_periodo || data[0]?.cod_periodo || ''; },
+      error: e => this.mostrarError(e)
+    });
   }
   seleccionar(): void {
     this.estudiante = this.estudiantes.find(e => e.cod_estudiante === this.codigo);
@@ -43,5 +46,13 @@ export class GestionMatriculasComponent implements OnInit {
     this.api.registrarResultado(detalle.id_matricula, detalle.id_oferta, nota, detalle.resultado).subscribe({ next: data => { this.mensaje = data.mensaje; this.cargarHistorial(); }, error: e => this.mostrarError(e) });
   }
   romano(n: number): string { return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][n - 1]; }
-  private mostrarError(error: HttpErrorResponse): void { this.mensaje = ''; this.error = error.error?.detail || 'No se pudo completar la operación.'; }
+  private mostrarError(error: HttpErrorResponse): void {
+    this.mensaje = '';
+    const detalle = error.error?.detail;
+    this.error = typeof detalle === 'string'
+      ? detalle
+      : Array.isArray(detalle)
+        ? detalle.map(item => item?.msg || 'Dato inválido').join(' ')
+        : 'No se pudo completar la operación.';
+  }
 }

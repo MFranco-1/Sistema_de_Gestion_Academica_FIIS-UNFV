@@ -273,7 +273,10 @@ class EstudianteUpdate(EstudianteBase):
     pass
 
 
-class Estudiante(EstudianteCreate):
+class Estudiante(EstudianteBase):
+    # Las altas nuevas exigen 10 dígitos. La salida tolera registros heredados
+    # para que uno antiguo no impida listar y administrar a todos los alumnos.
+    cod_estudiante: str
     den_plan: str = ""
     class Config:
         from_attributes = True
