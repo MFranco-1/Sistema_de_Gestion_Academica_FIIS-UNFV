@@ -12,7 +12,7 @@ export class MatriculaComponent implements OnInit {
   matriculas: MatriculaResumen[] = [];
   seleccionadas = new Set<number>();
   periodoSeleccionado = '';
-  seccionFiltro = '';
+  seccionFiltro = 'TODAS';
   mensaje = '';
   error = '';
   cargando = true;
@@ -54,7 +54,7 @@ export class MatriculaComponent implements OnInit {
       next: data => {
         this.ofertas = data;
         const secciones = this.seccionesDisponibles;
-        if (!secciones.includes(this.seccionFiltro)) this.seccionFiltro = secciones[0] || '';
+        if (this.seccionFiltro !== 'TODAS' && !secciones.includes(this.seccionFiltro)) this.seccionFiltro = 'TODAS';
         this.api.getPrematricula(this.estudiante!.cod_estudiante).subscribe(guardada => {
           if (guardada.cod_periodo === this.periodoSeleccionado) {
             const validas = new Set(data.map(item => item.id_oferta));
@@ -215,11 +215,14 @@ export class MatriculaComponent implements OnInit {
   }
   get ofertasFiltradas(): OfertaCurso[] {
     return this.ofertas
-      .filter(item => !this.seccionFiltro || item.cod_seccion === this.seccionFiltro)
+      .filter(item => this.seccionFiltro === 'TODAS' || item.cod_seccion === this.seccionFiltro)
       .sort((a, b) => a.semestre - b.semestre || a.cod_curso.localeCompare(b.cod_curso) || a.cod_seccion.localeCompare(b.cod_seccion));
   }
   cantidadSeccion(seccion: string): number {
     return this.ofertas.filter(item => item.cod_seccion === seccion && item.disponible).length;
+  }
+  get totalOfertasDisponibles(): number {
+    return this.ofertas.filter(item => item.disponible).length;
   }
   private mostrarError(error: HttpErrorResponse): void {
     this.mensaje = '';

@@ -63,3 +63,4 @@ td small { display:block; margin-top:3px; color:var(--text-secondary); }
 @media(max-width:1150px){.enrollment-layout{grid-template-columns:1fr}.enrollment-layout>.table-wrap{border-right:0}.selection-summary{position:static;border-top:1px solid var(--border-color)}}
 @media(max-width:1050px){.form-grid{grid-template-columns:repeat(2,1fr)}.field.wide{grid-column:span 1}}
 @media(max-width:800px){.student-profile{grid-template-columns:100px 1fr}.profile-data{grid-column:1/-1;border-left:0}.period-selector,.section-filter{align-items:stretch;flex-direction:column}.section-filter nav{width:100%;overflow-x:auto}.section-filter button{flex:1}.result-notice,.enroll-action{align-items:stretch;flex-direction:column}.result-notice button,.enroll-action button{width:100%}}
+.section-filter button>strong.all-sections{font:700 11px Arial,sans-serif}.section-filter button>small{white-space:nowrap}

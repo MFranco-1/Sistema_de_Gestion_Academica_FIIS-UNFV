@@ -29,6 +29,14 @@ with engine.begin() as migration_connection:
     migration_connection.exec_driver_sql(
         "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_examen_final INTEGER"
     )
+    migration_connection.exec_driver_sql("""
+        UPDATE matricula_detalle
+        SET nota_practicas = COALESCE(nota_practicas, nota_final),
+            nota_parcial = COALESCE(nota_parcial, nota_final),
+            nota_examen_final = COALESCE(nota_examen_final, nota_final)
+        WHERE nota_final IS NOT NULL
+          AND (nota_practicas IS NULL OR nota_parcial IS NULL OR nota_examen_final IS NULL)
+    """)
 with SessionLocal() as startup_db:
     auth.ensure_security_data(startup_db)
 

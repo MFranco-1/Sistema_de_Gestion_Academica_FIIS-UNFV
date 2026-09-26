@@ -28,6 +28,7 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Prematrícula estudiantil persistente con vista semanal institucional; funciona como guía y no altera la matrícula oficial.
 - La matrícula muestra un resumen lateral de cursos y créditos, solicita confirmación y permite descargar una constancia PDF por período.
 - El historial presenta prácticas (40 %), parcial (30 %), examen final (30 %), promedio final, promedio aritmético y promedio ponderado.
+- Los datos demostrativos incluyen estudiantes en las secciones A, B y C con matrículas actuales e historiales completos; las notas finales antiguas se conservan y completan sus componentes faltantes.
 - Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.
 - Documentación interactiva de la API con Swagger.
 

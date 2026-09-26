@@ -470,10 +470,10 @@ def asegurar_horarios_y_secciones(db):
         models.Docente.cod_docente,
     ).all()
     if docentes:
-        ofertas_activas = db.query(models.OfertaCurso).filter_by(
-            cod_periodo=periodo.cod_periodo, corr_pe=2,
-        ).order_by(models.OfertaCurso.cod_curso, models.OfertaCurso.cod_seccion).all()
-        for indice, oferta in enumerate(ofertas_activas):
+        ofertas_sin_docente = db.query(models.OfertaCurso).filter_by(
+            corr_pe=2,
+        ).order_by(models.OfertaCurso.cod_periodo, models.OfertaCurso.cod_curso, models.OfertaCurso.cod_seccion).all()
+        for indice, oferta in enumerate(ofertas_sin_docente):
             if not oferta.cod_docente:
                 oferta.cod_docente = docentes[indice % len(docentes)].cod_docente
     db.flush()
@@ -502,6 +502,12 @@ def asegurar_estudiantes_secciones(db):
         ("2020001166", "71001166", "Quispe Díaz, Andrés", 10, "C"),
         ("2024001177", "71001177", "Ramírez Luna, Camila", 2, "A"),
         ("2023001188", "71001188", "Salazar Meza, Joaquín", 4, "B"),
+        ("2024001199", "71001199", "Sánchez Ortiz, Elena", 2, "B"),
+        ("2023001200", "71001200", "Valdivia Ramos, Mateo", 4, "A"),
+        ("2022001211", "71001211", "Zegarra Núñez, Andrea", 6, "B"),
+        ("2021001222", "71001222", "Campos Huamán, Rodrigo", 8, "C"),
+        ("2020001233", "71001233", "Chávez Flores, Mariana", 10, "A"),
+        ("2024001244", "71001244", "Ramos Ponce, Thiago", 2, "C"),
     )
     periodo = db.query(models.PeriodoAcademico).filter_by(activo=True).first()
     # Estas cuentas quedan libres para demostrar la prematrícula antes del registro oficial.
@@ -548,6 +554,65 @@ def asegurar_estudiantes_secciones(db):
             db.add(models.MatriculaDetalle(
                 id_matricula=matricula.id_matricula, id_oferta=oferta.id_oferta,
                 resultado="MATRICULADO",
+            ))
+    asegurar_historial_demostrativo(db, alumnos)
+
+
+def asegurar_historial_demostrativo(db, alumnos):
+    """Crea historiales completos únicamente para las cuentas demostrativas."""
+    periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo="2025-I").first()
+    if not periodo:
+        return
+    db.flush()
+    for indice_alumno, (codigo, _, _, ciclo_actual, seccion) in enumerate(alumnos):
+        if db.query(models.Matricula).filter_by(
+            cod_estudiante=codigo, cod_periodo=periodo.cod_periodo,
+        ).first():
+            continue
+        ciclo_historial = max(1, ciclo_actual - 1)
+        ofertas = (
+            db.query(models.OfertaCurso)
+            .join(models.Curso, (
+                (models.Curso.cod_fac == models.OfertaCurso.cod_fac)
+                & (models.Curso.cod_esc == models.OfertaCurso.cod_esc)
+                & (models.Curso.corr_pe == models.OfertaCurso.corr_pe)
+                & (models.Curso.cod_curso == models.OfertaCurso.cod_curso)
+            ))
+            .filter(
+                models.OfertaCurso.cod_periodo == periodo.cod_periodo,
+                models.OfertaCurso.corr_pe == 2,
+                models.OfertaCurso.cod_seccion == seccion,
+                models.Curso.semestre == ciclo_historial,
+            )
+            .order_by(models.Curso.cod_curso)
+            .all()
+        )
+        if not ofertas:
+            continue
+        matricula = models.Matricula(
+            cod_estudiante=codigo, cod_periodo=periodo.cod_periodo,
+            cod_fac=FACULTAD, cod_esc=ESCUELA, corr_pe=2,
+            ciclo_matricula=ciclo_historial, fecha_matricula=periodo.fecha_inicio,
+            estado="CERRADA",
+        )
+        db.add(matricula)
+        db.flush()
+        for indice_curso, oferta in enumerate(ofertas):
+            if indice_alumno % 4 == 1 and indice_curso == len(ofertas) - 1:
+                practicas, parcial, examen = 8, 10, 9
+            else:
+                practicas = 12 + (indice_alumno + indice_curso) % 8
+                parcial = 11 + (indice_alumno * 2 + indice_curso) % 9
+                examen = 10 + (indice_alumno + indice_curso * 2) % 10
+            promedio = int(practicas * .40 + parcial * .30 + examen * .30 + .5)
+            db.add(models.MatriculaDetalle(
+                id_matricula=matricula.id_matricula,
+                id_oferta=oferta.id_oferta,
+                nota_practicas=practicas,
+                nota_parcial=parcial,
+                nota_examen_final=examen,
+                nota_final=promedio,
+                resultado="APROBADO" if promedio >= 11 else "DESAPROBADO",
             ))
 
 
@@ -610,6 +675,7 @@ def insertar_estudiante_demo(db):
         db.flush()
         db.add(models.MatriculaDetalle(
             id_matricula=matricula.id_matricula, id_oferta=oferta.id_oferta,
+            nota_practicas=nota, nota_parcial=nota, nota_examen_final=nota,
             nota_final=nota, resultado=resultado,
         ))
 
@@ -660,6 +726,14 @@ def seed_data(reset=False):
         connection.exec_driver_sql(
             "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_examen_final INTEGER"
         )
+        connection.exec_driver_sql("""
+            UPDATE matricula_detalle
+            SET nota_practicas = COALESCE(nota_practicas, nota_final),
+                nota_parcial = COALESCE(nota_parcial, nota_final),
+                nota_examen_final = COALESCE(nota_examen_final, nota_final)
+            WHERE nota_final IS NOT NULL
+              AND (nota_practicas IS NULL OR nota_parcial IS NULL OR nota_examen_final IS NULL)
+        """)
     migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()
     inicializar_estudiantes_primer_ciclo()
