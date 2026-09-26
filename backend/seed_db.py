@@ -466,6 +466,16 @@ def asegurar_horarios_y_secciones(db):
                         ))
                         cursor += bloque
                         restantes -= bloque
+    docentes = db.query(models.Docente).filter_by(cod_fac=FACULTAD, cod_esc=ESCUELA).order_by(
+        models.Docente.cod_docente,
+    ).all()
+    if docentes:
+        ofertas_activas = db.query(models.OfertaCurso).filter_by(
+            cod_periodo=periodo.cod_periodo, corr_pe=2,
+        ).order_by(models.OfertaCurso.cod_curso, models.OfertaCurso.cod_seccion).all()
+        for indice, oferta in enumerate(ofertas_activas):
+            if not oferta.cod_docente:
+                oferta.cod_docente = docentes[indice % len(docentes)].cod_docente
     db.flush()
 
 

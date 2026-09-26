@@ -309,6 +309,8 @@ class OfertaCurso(BaseModel):
     motivo: str = ""
     horario_resumen: str = "Horario pendiente"
     horarios: list[BloqueHorario] = []
+    cod_docente: Optional[str] = None
+    docente_nombre: str = "Por asignar"
 
 
 class OfertaSeccionCreate(BaseModel):
@@ -414,6 +416,8 @@ class MatriculaDetalle(BaseModel):
     den_curso: str
     semestre: int
     cod_seccion: str
+    cod_docente: Optional[str] = None
+    docente_nombre: str = "Por asignar"
     nota_final: Optional[int] = None
     resultado: str
 

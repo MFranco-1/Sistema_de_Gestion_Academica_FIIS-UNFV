@@ -966,6 +966,9 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
 
     resultado = []
     for oferta, curso, matriculados in filas:
+        docente = db.query(models.Docente).filter_by(
+            cod_fac=oferta.cod_fac, cod_esc=oferta.cod_esc, cod_docente=oferta.cod_docente,
+        ).first() if oferta.cod_docente else None
         sesiones = (
             db.query(models.HorarioCurso)
             .join(models.HorarioCabecera, models.HorarioCabecera.id_horario == models.HorarioCurso.id_horario)
@@ -1025,6 +1028,8 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
                 "dia_semana": s.dia_semana, "hora_inicio": s.hora_inicio,
                 "hora_fin": s.hora_fin, "tipo_sesion": s.tipo_sesion, "aula": s.aula,
             } for s in sesiones],
+            "cod_docente": oferta.cod_docente,
+            "docente_nombre": docente.apellidos_nombres if docente else "Por asignar",
         })
     return resultado
 
@@ -1128,13 +1133,18 @@ def get_matriculas_estudiante(db: Session, codigo: str):
     resultado = []
     for matricula in matriculas:
         detalles = (
-            db.query(models.MatriculaDetalle, models.OfertaCurso, models.Curso)
+            db.query(models.MatriculaDetalle, models.OfertaCurso, models.Curso, models.Docente)
             .join(models.OfertaCurso, models.OfertaCurso.id_oferta == models.MatriculaDetalle.id_oferta)
             .join(models.Curso, and_(
                 models.Curso.cod_fac == models.OfertaCurso.cod_fac,
                 models.Curso.cod_esc == models.OfertaCurso.cod_esc,
                 models.Curso.corr_pe == models.OfertaCurso.corr_pe,
                 models.Curso.cod_curso == models.OfertaCurso.cod_curso,
+            ))
+            .outerjoin(models.Docente, and_(
+                models.Docente.cod_fac == models.OfertaCurso.cod_fac,
+                models.Docente.cod_esc == models.OfertaCurso.cod_esc,
+                models.Docente.cod_docente == models.OfertaCurso.cod_docente,
             ))
             .filter(models.MatriculaDetalle.id_matricula == matricula.id_matricula)
             .order_by(models.Curso.semestre, models.Curso.cod_curso)
@@ -1151,9 +1161,12 @@ def get_matriculas_estudiante(db: Session, codigo: str):
                 "id_matricula": detalle.id_matricula, "id_oferta": detalle.id_oferta,
                 "cod_periodo": oferta.cod_periodo, "cod_curso": curso.cod_curso,
                 "den_curso": curso.den_curso, "semestre": curso.semestre,
-                "cod_seccion": oferta.cod_seccion, "nota_final": detalle.nota_final,
+                "cod_seccion": oferta.cod_seccion,
+                "cod_docente": oferta.cod_docente,
+                "docente_nombre": docente.apellidos_nombres if docente else "Por asignar",
+                "nota_final": detalle.nota_final,
                 "resultado": detalle.resultado,
-            } for detalle, oferta, curso in detalles],
+            } for detalle, oferta, curso, docente in detalles],
         })
     return resultado
 

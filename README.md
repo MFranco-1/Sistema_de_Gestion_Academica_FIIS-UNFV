@@ -24,6 +24,7 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Programación A/B/C por ciclo y turno, horas académicas de 50 minutos, apertura de secciones y capacidad por curso/sección.
 - Gestión de horarios en pantalla independiente: teoría y práctica se programan juntas según las horas de la malla, dentro de una misma sección y aula.
 - Asignación de docentes por curso, período y sección para los perfiles autorizados.
+- El alumno visualiza el docente de cada sección antes de matricularse, en su prematrícula y en el historial académico.
 - Prematrícula estudiantil persistente con vista semanal institucional; funciona como guía y no altera la matrícula oficial.
 - Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.
 - Documentación interactiva de la API con Swagger.

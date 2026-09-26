@@ -186,6 +186,8 @@ export interface OfertaCurso {
   motivo: string;
   horario_resumen: string;
   horarios: BloqueHorario[];
+  cod_docente?: string;
+  docente_nombre: string;
 }
 
 export interface BloqueHorario { dia_semana: string; hora_inicio: string; hora_fin: string; tipo_sesion: string; aula: string; }
@@ -221,6 +223,8 @@ export interface MatriculaDetalle {
   den_curso: string;
   semestre: number;
   cod_seccion: string;
+  cod_docente?: string;
+  docente_nombre: string;
   nota_final?: number;
   resultado: 'MATRICULADO' | 'APROBADO' | 'DESAPROBADO' | 'RETIRADO';
 }
