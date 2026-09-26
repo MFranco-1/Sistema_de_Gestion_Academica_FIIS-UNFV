@@ -31,7 +31,7 @@
     <tr *ngIf="!ofertas.length"><td colspan="8" class="empty">No existen cursos ofertados para este período.</td></tr>
   </tbody></table></div>
   <section class="pre-enrollment" *ngIf="seleccionadas.size">
-    <div class="pre-head"><div><small>CLÁUSULA DE PREMATRÍCULA</small><h3>Vista previa de mi horario</h3><p>Esta guía se guarda aparte y no registra ni modifica su matrícula oficial.</p></div><button type="button" class="secondary" (click)="guardarPrematricula()">GUARDAR COMO GUÍA</button></div>
+    <div class="pre-head"><div><small>PREMATRÍCULA</small><h3>Vista previa de mi horario</h3><p>Puede guardar esta selección como borrador. No ocupa vacantes ni registra su matrícula oficial.</p></div></div>
     <div class="cross-warning" *ngIf="crucePrematricula"><strong>Cruce detectado:</strong> {{ crucePrematricula }}</div>
     <div class="week-grid"><div class="day-column" *ngFor="let dia of diasHorario"><header>{{ dia }}</header><div class="day-empty" *ngIf="!bloquesDia(dia).length">Sin clases</div><article *ngFor="let item of bloquesDia(dia)"><strong>{{ item.oferta.cod_curso }}</strong><span>{{ item.oferta.den_curso }}</span><b>{{ item.bloque.hora_inicio.slice(0,5) }}–{{ item.bloque.hora_fin.slice(0,5) }}</b><small>Sección {{ item.oferta.cod_seccion }} · {{ item.bloque.tipo_sesion === 'T' ? 'Teoría' : 'Práctica' }} · {{ item.bloque.aula }}</small><small>Docente: {{ item.oferta.docente_nombre }}</small></article></div></div>
   </section>
