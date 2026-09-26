@@ -26,6 +26,8 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Asignación de docentes por curso, período y sección para los perfiles autorizados.
 - El alumno visualiza el docente de cada sección antes de matricularse, en su prematrícula y en el historial académico.
 - Prematrícula estudiantil persistente con vista semanal institucional; funciona como guía y no altera la matrícula oficial.
+- La matrícula muestra un resumen lateral de cursos y créditos, solicita confirmación y permite descargar una constancia PDF por período.
+- El historial presenta prácticas (40 %), parcial (30 %), examen final (30 %), promedio final, promedio aritmético y promedio ponderado.
 - Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.
 - Documentación interactiva de la API con Swagger.
 

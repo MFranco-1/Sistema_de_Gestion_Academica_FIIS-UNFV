@@ -17,7 +17,7 @@ El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres d
 | `estudiante` | Datos del estudiante y su situación curricular. | `cod_estudiante` | Código institucional obligatorio de exactamente 10 dígitos; DNI y correo únicos; malla existente; ciclo 1–10; estado válido; prematrícula persistente como guía. |
 | `oferta_curso` | Cursos abiertos por período, malla y sección. | `id_oferta` | Una sección no se repite en el mismo período; vacantes positivas; docente opcional por curso y sección. |
 | `matricula` | Cabecera de matrícula por estudiante y período. | `id_matricula` | Una matrícula por estudiante y período; conserva la malla y ciclo utilizados. |
-| `matricula_detalle` | Cursos y resultados de una matrícula. | `id_matricula, id_oferta` | Nota 0–20; resultado matriculado, aprobado, desaprobado o retirado. |
+| `matricula_detalle` | Cursos, notas y resultados de una matrícula. | `id_matricula, id_oferta` | Prácticas 40 %, parcial 30 % y examen final 30 %, todas de 0 a 20; `nota_final` es el promedio calculado. Resultado matriculado, aprobado, desaprobado o retirado. |
 | `perfil` | Catálogo de perfiles de acceso. | `id_perfil` | Código y nombre únicos; incluye Administrador, Estudiante, Jefe de departamento, Director de escuela y Administración. |
 | `usuario` | Credenciales y vínculo opcional con un estudiante. | `id_usuario` | Nombre de usuario único, contraseña con hash; las cuentas vinculadas a estudiantes usan obligatoriamente el DNI como contraseña inicial. |
 | `usuario_perfil` | Perfiles asignados a cada usuario. | `id_usuario, id_perfil` | Permite que una cuenta tenga uno o varios perfiles. |

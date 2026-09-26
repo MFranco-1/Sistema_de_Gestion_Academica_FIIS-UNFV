@@ -85,8 +85,10 @@ JOIN curso c ON c.cod_fac = hc.cod_fac AND c.cod_esc = hc.cod_esc
 GROUP BY c.cod_curso, c.den_curso, c.ht, c.hp, hc.cod_seccion, hc.tipo_sesion
 ORDER BY c.cod_curso, hc.cod_seccion, hc.tipo_sesion;
 
--- 9. Historial académico de un estudiante.
-SELECT m.cod_periodo, c.cod_curso, c.den_curso, md.nota_final, md.resultado
+-- 9. Historial académico: prácticas 40 %, parcial 30 % y examen final 30 %.
+SELECT m.cod_periodo, c.cod_curso, c.den_curso, c.cred,
+       md.nota_practicas, md.nota_parcial, md.nota_examen_final,
+       md.nota_final, md.resultado
 FROM matricula AS m
 JOIN matricula_detalle AS md ON md.id_matricula = m.id_matricula
 JOIN oferta_curso AS o ON o.id_oferta = md.id_oferta
@@ -95,6 +97,20 @@ JOIN curso AS c
  AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
 WHERE m.cod_estudiante = '2021000001'
 ORDER BY m.cod_periodo, c.semestre;
+
+-- 9.1. Promedio aritmético y ponderado por matrícula.
+SELECT m.id_matricula, m.cod_periodo,
+       ROUND(AVG(md.nota_final)::NUMERIC, 2) AS promedio_aritmetico,
+       ROUND(SUM(md.nota_final * c.cred)::NUMERIC / NULLIF(SUM(c.cred), 0), 2) AS promedio_ponderado
+FROM matricula AS m
+JOIN matricula_detalle AS md ON md.id_matricula = m.id_matricula
+JOIN oferta_curso AS o ON o.id_oferta = md.id_oferta
+JOIN curso AS c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+                    AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+WHERE m.cod_estudiante = '2021000001'
+  AND md.nota_final IS NOT NULL AND md.resultado <> 'RETIRADO'
+GROUP BY m.id_matricula, m.cod_periodo
+ORDER BY m.cod_periodo;
 
 -- 10. Ofertas de la malla del estudiante en un período.
 -- La API completa esta consulta excluyendo cursos aprobados y verificando prerrequisitos y vacantes.

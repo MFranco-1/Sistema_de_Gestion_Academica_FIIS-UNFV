@@ -225,6 +225,10 @@ export interface MatriculaDetalle {
   cod_seccion: string;
   cod_docente?: string;
   docente_nombre: string;
+  cred: number;
+  nota_practicas?: number;
+  nota_parcial?: number;
+  nota_examen_final?: number;
   nota_final?: number;
   resultado: 'MATRICULADO' | 'APROBADO' | 'DESAPROBADO' | 'RETIRADO';
 }
@@ -236,6 +240,9 @@ export interface MatriculaResumen {
   ciclo_matricula: number;
   fecha_matricula: string;
   estado: string;
+  total_creditos: number;
+  promedio_aritmetico?: number;
+  promedio_ponderado?: number;
   detalles: MatriculaDetalle[];
 }
 
@@ -400,11 +407,17 @@ export class ApiService {
   }
 
   registrarResultado(
-    idMatricula: number, idOferta: number, notaFinal: number | undefined, resultado: string
+    idMatricula: number, idOferta: number, detalle: MatriculaDetalle
   ): Observable<Mensaje> {
     return this.http.put<Mensaje>(
       `${this.apiUrl}/matriculas/${idMatricula}/ofertas/${idOferta}/resultado`,
-      { nota_final: notaFinal, resultado }
+      {
+        nota_practicas: detalle.nota_practicas ?? null,
+        nota_parcial: detalle.nota_parcial ?? null,
+        nota_examen_final: detalle.nota_examen_final ?? null,
+        nota_final: detalle.nota_final ?? null,
+        resultado: detalle.resultado
+      }
     );
   }
 
@@ -431,6 +444,9 @@ export class ApiService {
       `${this.apiUrl}/matriculas/${idMatricula}/resultados`,
       { resultados: detalles.map(item => ({
         id_oferta: item.id_oferta,
+        nota_practicas: item.nota_practicas ?? null,
+        nota_parcial: item.nota_parcial ?? null,
+        nota_examen_final: item.nota_examen_final ?? null,
         nota_final: item.nota_final ?? null,
         resultado: item.resultado
       })) }

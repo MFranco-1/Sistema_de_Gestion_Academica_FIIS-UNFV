@@ -279,9 +279,15 @@ class MatriculaDetalle(Base):
         Integer, ForeignKey("matricula.id_matricula", ondelete="CASCADE"), primary_key=True,
     )
     id_oferta = Column(Integer, ForeignKey("oferta_curso.id_oferta"), primary_key=True)
+    nota_practicas = Column(Integer, nullable=True)
+    nota_parcial = Column(Integer, nullable=True)
+    nota_examen_final = Column(Integer, nullable=True)
     nota_final = Column(Integer, nullable=True)
     resultado = Column(String(12), nullable=False, default="MATRICULADO")
     __table_args__ = (
+        CheckConstraint("nota_practicas IS NULL OR nota_practicas BETWEEN 0 AND 20", name="ck_detalle_nota_practicas"),
+        CheckConstraint("nota_parcial IS NULL OR nota_parcial BETWEEN 0 AND 20", name="ck_detalle_nota_parcial"),
+        CheckConstraint("nota_examen_final IS NULL OR nota_examen_final BETWEEN 0 AND 20", name="ck_detalle_nota_examen_final"),
         CheckConstraint("nota_final IS NULL OR nota_final BETWEEN 0 AND 20", name="ck_detalle_nota"),
         CheckConstraint(
             "resultado IN ('MATRICULADO', 'APROBADO', 'DESAPROBADO', 'RETIRADO')",

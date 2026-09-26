@@ -20,6 +20,15 @@ with engine.begin() as migration_connection:
     migration_connection.exec_driver_sql(
         "ALTER TABLE oferta_curso ADD COLUMN IF NOT EXISTS cod_docente VARCHAR(20)"
     )
+    migration_connection.exec_driver_sql(
+        "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_practicas INTEGER"
+    )
+    migration_connection.exec_driver_sql(
+        "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_parcial INTEGER"
+    )
+    migration_connection.exec_driver_sql(
+        "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_examen_final INTEGER"
+    )
 with SessionLocal() as startup_db:
     auth.ensure_security_data(startup_db)
 

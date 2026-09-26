@@ -388,6 +388,9 @@ class MatriculaCreate(BaseModel):
 
 
 class ResultadoUpdate(BaseModel):
+    nota_practicas: Optional[int] = Field(default=None, ge=0, le=20)
+    nota_parcial: Optional[int] = Field(default=None, ge=0, le=20)
+    nota_examen_final: Optional[int] = Field(default=None, ge=0, le=20)
     nota_final: Optional[int] = Field(default=None, ge=0, le=20)
     resultado: str
 
@@ -418,6 +421,10 @@ class MatriculaDetalle(BaseModel):
     cod_seccion: str
     cod_docente: Optional[str] = None
     docente_nombre: str = "Por asignar"
+    cred: int
+    nota_practicas: Optional[int] = None
+    nota_parcial: Optional[int] = None
+    nota_examen_final: Optional[int] = None
     nota_final: Optional[int] = None
     resultado: str
 
@@ -429,6 +436,9 @@ class MatriculaResumen(BaseModel):
     ciclo_matricula: int
     fecha_matricula: date
     estado: str
+    total_creditos: int = 0
+    promedio_aritmetico: Optional[float] = None
+    promedio_ponderado: Optional[float] = None
     detalles: list[MatriculaDetalle] = []
 
 

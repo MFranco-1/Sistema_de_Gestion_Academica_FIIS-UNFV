@@ -202,9 +202,15 @@ CREATE TABLE matricula (
 CREATE TABLE matricula_detalle (
     id_matricula INTEGER NOT NULL REFERENCES matricula(id_matricula) ON DELETE CASCADE,
     id_oferta INTEGER NOT NULL REFERENCES oferta_curso(id_oferta),
+    nota_practicas INTEGER,
+    nota_parcial INTEGER,
+    nota_examen_final INTEGER,
     nota_final INTEGER,
     resultado VARCHAR(12) NOT NULL DEFAULT 'MATRICULADO',
     CONSTRAINT pk_matricula_detalle PRIMARY KEY (id_matricula, id_oferta),
+    CONSTRAINT ck_detalle_nota_practicas CHECK (nota_practicas IS NULL OR nota_practicas BETWEEN 0 AND 20),
+    CONSTRAINT ck_detalle_nota_parcial CHECK (nota_parcial IS NULL OR nota_parcial BETWEEN 0 AND 20),
+    CONSTRAINT ck_detalle_nota_examen_final CHECK (nota_examen_final IS NULL OR nota_examen_final BETWEEN 0 AND 20),
     CONSTRAINT ck_detalle_nota CHECK (nota_final IS NULL OR nota_final BETWEEN 0 AND 20),
     CONSTRAINT ck_detalle_resultado CHECK
         (resultado IN ('MATRICULADO','APROBADO','DESAPROBADO','RETIRADO'))

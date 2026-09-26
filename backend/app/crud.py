@@ -1117,6 +1117,7 @@ def crear_matricula(db: Session, datos: schemas.MatriculaCreate):
             id_matricula=matricula.id_matricula, id_oferta=id_oferta,
             resultado="MATRICULADO",
         ))
+    estudiante.prematricula = ""
     _commit(db, "No se pudo registrar la matrícula por un conflicto académico.")
     return next(
         item for item in get_matriculas_estudiante(db, estudiante.cod_estudiante)
@@ -1150,6 +1151,22 @@ def get_matriculas_estudiante(db: Session, codigo: str):
             .order_by(models.Curso.semestre, models.Curso.cod_curso)
             .all()
         )
+        detalles_respuesta = [{
+                "id_matricula": detalle.id_matricula, "id_oferta": detalle.id_oferta,
+                "cod_periodo": oferta.cod_periodo, "cod_curso": curso.cod_curso,
+                "den_curso": curso.den_curso, "semestre": curso.semestre,
+                "cod_seccion": oferta.cod_seccion,
+                "cod_docente": oferta.cod_docente,
+                "docente_nombre": docente.apellidos_nombres if docente else "Por asignar",
+                "cred": curso.cred,
+                "nota_practicas": detalle.nota_practicas,
+                "nota_parcial": detalle.nota_parcial,
+                "nota_examen_final": detalle.nota_examen_final,
+                "nota_final": detalle.nota_final,
+                "resultado": detalle.resultado,
+            } for detalle, oferta, curso, docente in detalles]
+        calificados = [item for item in detalles_respuesta if item["nota_final"] is not None and item["resultado"] != "RETIRADO"]
+        creditos_calificados = sum(item["cred"] for item in calificados)
         resultado.append({
             "id_matricula": matricula.id_matricula,
             "cod_estudiante": matricula.cod_estudiante,
@@ -1157,16 +1174,10 @@ def get_matriculas_estudiante(db: Session, codigo: str):
             "ciclo_matricula": matricula.ciclo_matricula,
             "fecha_matricula": matricula.fecha_matricula,
             "estado": matricula.estado,
-            "detalles": [{
-                "id_matricula": detalle.id_matricula, "id_oferta": detalle.id_oferta,
-                "cod_periodo": oferta.cod_periodo, "cod_curso": curso.cod_curso,
-                "den_curso": curso.den_curso, "semestre": curso.semestre,
-                "cod_seccion": oferta.cod_seccion,
-                "cod_docente": oferta.cod_docente,
-                "docente_nombre": docente.apellidos_nombres if docente else "Por asignar",
-                "nota_final": detalle.nota_final,
-                "resultado": detalle.resultado,
-            } for detalle, oferta, curso, docente in detalles],
+            "total_creditos": sum(item["cred"] for item in detalles_respuesta if item["resultado"] != "RETIRADO"),
+            "promedio_aritmetico": round(sum(item["nota_final"] for item in calificados) / len(calificados), 2) if calificados else None,
+            "promedio_ponderado": round(sum(item["nota_final"] * item["cred"] for item in calificados) / creditos_calificados, 2) if creditos_calificados else None,
+            "detalles": detalles_respuesta,
         })
     return resultado
 
@@ -1223,14 +1234,33 @@ def _aplicar_resultado(
     if not detalle:
         raise HTTPException(status_code=404, detail="El curso matriculado no existe.")
     if datos.resultado == "RETIRADO":
+        detalle.nota_practicas = None
+        detalle.nota_parcial = None
+        detalle.nota_examen_final = None
         detalle.nota_final = None
         detalle.resultado = "RETIRADO"
-    elif datos.nota_final is None:
-        detalle.nota_final = None
-        detalle.resultado = "MATRICULADO"
-    else:
+        return
+
+    detalle.nota_practicas = datos.nota_practicas
+    detalle.nota_parcial = datos.nota_parcial
+    detalle.nota_examen_final = datos.nota_examen_final
+    componentes = (datos.nota_practicas, datos.nota_parcial, datos.nota_examen_final)
+    if all(nota is not None for nota in componentes):
+        promedio = int(
+            datos.nota_practicas * 0.40
+            + datos.nota_parcial * 0.30
+            + datos.nota_examen_final * 0.30
+            + 0.5
+        )
+        detalle.nota_final = promedio
+        detalle.resultado = "APROBADO" if promedio >= 11 else "DESAPROBADO"
+    elif datos.nota_final is not None and all(nota is None for nota in componentes):
+        # Compatibilidad con registros anteriores que solo guardaban una nota final.
         detalle.nota_final = datos.nota_final
         detalle.resultado = "APROBADO" if datos.nota_final >= 11 else "DESAPROBADO"
+    else:
+        detalle.nota_final = None
+        detalle.resultado = "MATRICULADO"
 
 
 def registrar_resultados_lote(

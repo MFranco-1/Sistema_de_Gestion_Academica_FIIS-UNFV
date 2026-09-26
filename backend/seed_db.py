@@ -651,6 +651,15 @@ def seed_data(reset=False):
         connection.exec_driver_sql(
             "ALTER TABLE oferta_curso ADD COLUMN IF NOT EXISTS cod_docente VARCHAR(20)"
         )
+        connection.exec_driver_sql(
+            "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_practicas INTEGER"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_parcial INTEGER"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_examen_final INTEGER"
+        )
     migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()
     inicializar_estudiantes_primer_ciclo()

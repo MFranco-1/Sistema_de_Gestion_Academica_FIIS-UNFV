@@ -48,21 +48,28 @@ export class GestionMatriculasComponent implements OnInit {
     this.api.crearMatricula(this.estudiante.cod_estudiante, this.periodo, [...this.seleccionadas]).subscribe({ next: () => { this.mensaje = 'Matrícula registrada correctamente.'; this.cargarOfertas(); this.cargarHistorial(); }, error: e => this.mostrarError(e) });
   }
   guardarResultado(detalle: MatriculaDetalle): void {
-    const nota = detalle.nota_final === null || detalle.nota_final === undefined ? undefined : Number(detalle.nota_final);
-    this.api.registrarResultado(detalle.id_matricula, detalle.id_oferta, nota, detalle.resultado).subscribe({ next: data => { this.mensaje = data.mensaje; this.cargarHistorial(); }, error: e => this.mostrarError(e) });
+    this.api.registrarResultado(detalle.id_matricula, detalle.id_oferta, detalle).subscribe({ next: data => { this.mensaje = data.mensaje; this.cargarHistorial(); }, error: e => this.mostrarError(e) });
   }
   actualizarResultado(detalle: MatriculaDetalle): void {
-    if (detalle.nota_final === null || detalle.nota_final === undefined) {
-      if (detalle.resultado !== 'RETIRADO') detalle.resultado = 'MATRICULADO';
+    if (detalle.resultado === 'RETIRADO') return;
+    const notas = [detalle.nota_practicas, detalle.nota_parcial, detalle.nota_examen_final];
+    if (notas.some(nota => nota === null || nota === undefined || nota < 0 || nota > 20)) {
+      detalle.nota_final = undefined;
+      detalle.resultado = 'MATRICULADO';
       return;
     }
-    detalle.resultado = Number(detalle.nota_final) >= 11 ? 'APROBADO' : 'DESAPROBADO';
+    detalle.nota_final = Math.round(Number(detalle.nota_practicas) * .40 + Number(detalle.nota_parcial) * .30 + Number(detalle.nota_examen_final) * .30);
+    detalle.resultado = detalle.nota_final >= 11 ? 'APROBADO' : 'DESAPROBADO';
   }
-  cambiarResultadoManual(detalle: MatriculaDetalle): void {
-    if (detalle.resultado === 'MATRICULADO' || detalle.resultado === 'RETIRADO') {
-      detalle.nota_final = undefined;
+  alternarRetiro(detalle: MatriculaDetalle): void {
+    if (detalle.resultado === 'RETIRADO') {
+      detalle.resultado = 'MATRICULADO';
     } else {
-      this.actualizarResultado(detalle);
+      detalle.resultado = 'RETIRADO';
+      detalle.nota_practicas = undefined;
+      detalle.nota_parcial = undefined;
+      detalle.nota_examen_final = undefined;
+      detalle.nota_final = undefined;
     }
   }
   guardarTodos(matricula: MatriculaResumen): void {
@@ -72,7 +79,7 @@ export class GestionMatriculasComponent implements OnInit {
       error: e => this.mostrarError(e)
     });
   }
-  romano(n: number): string { return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][n - 1]; }
+  romano(n: number): string { return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][n - 1]; }
   private mostrarError(error: HttpErrorResponse): void {
     this.mensaje = '';
     const detalle = error.error?.detail;
