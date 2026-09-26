@@ -73,6 +73,13 @@ def migrar_periodos_y_ofertas() -> None:
                 END
             WHERE anio IS NULL OR tipo_periodo IS NULL
         """))
+        # Programación aplicada II pertenece al quinto ciclo; su requisito
+        # Programación aplicada I se cursa previamente en el cuarto.
+        connection.execute(text("""
+            UPDATE curso
+            SET semestre = 5
+            WHERE corr_pe = 2 AND cod_curso = 'P19-31' AND semestre <> 5
+        """))
         connection.exec_driver_sql("ALTER TABLE periodo_academico ALTER COLUMN anio SET NOT NULL")
         connection.exec_driver_sql("ALTER TABLE periodo_academico ALTER COLUMN tipo_periodo SET NOT NULL")
         connection.execute(text("""
@@ -283,8 +290,8 @@ NOMBRES_2019 = {
 }
 
 SEMESTRES_2019 = {
-    1: range(1, 9), 2: range(9, 17), 3: range(17, 25), 4: range(25, 32),
-    5: range(32, 39), 6: range(39, 46), 7: range(46, 54),
+    1: range(1, 9), 2: range(9, 17), 3: range(17, 25), 4: range(25, 31),
+    5: range(31, 39), 6: range(39, 46), 7: range(46, 54),
     8: range(54, 60), 9: range(60, 66), 10: range(66, 72),
 }
 
@@ -422,6 +429,31 @@ def insertar_plan(db, corr_pe, plan, cursos, prerequisitos):
                 cod_fac=FACULTAD, cod_esc=ESCUELA, corr_pe=corr_pe,
                 cod_curso=cod_curso, cod_curso_prerequisito=cod_requisito,
             ))
+
+
+def validar_prerequisitos_malla(db):
+    """Impide desplegar una malla con requisitos del mismo ciclo o posteriores."""
+    inconsistencias = db.execute(text("""
+        SELECT cp.cod_curso, c.semestre AS ciclo_curso,
+               cp.cod_curso_prerequisito, requisito.semestre AS ciclo_requisito
+        FROM curso_prerequisito cp
+        JOIN curso c
+          ON c.cod_fac = cp.cod_fac AND c.cod_esc = cp.cod_esc
+         AND c.corr_pe = cp.corr_pe AND c.cod_curso = cp.cod_curso
+        JOIN curso requisito
+          ON requisito.cod_fac = cp.cod_fac AND requisito.cod_esc = cp.cod_esc
+         AND requisito.corr_pe = cp.corr_pe
+         AND requisito.cod_curso = cp.cod_curso_prerequisito
+        WHERE cp.corr_pe = 2 AND requisito.semestre >= c.semestre
+        ORDER BY cp.cod_curso, cp.cod_curso_prerequisito
+    """)).mappings().all()
+    if inconsistencias:
+        detalle = ", ".join(
+            f"{fila['cod_curso']} (ciclo {fila['ciclo_curso']}) requiere "
+            f"{fila['cod_curso_prerequisito']} (ciclo {fila['ciclo_requisito']})"
+            for fila in inconsistencias
+        )
+        raise RuntimeError(f"La malla contiene prerrequisitos inválidos: {detalle}")
 
 
 def _minutos_horario(valor: time) -> int:
@@ -902,6 +934,7 @@ def seed_data(reset=False):
     try:
         auth.ensure_security_data(db)
         if db.query(models.PlanEstudio).first():
+            validar_prerequisitos_malla(db)
             asegurar_horarios_y_secciones(db)
             asegurar_estudiantes_secciones(db)
             db.commit()
@@ -923,6 +956,7 @@ def seed_data(reset=False):
         insertar_docentes(db)
         insertar_periodos_y_ofertas(db)
         insertar_estudiante_demo(db)
+        validar_prerequisitos_malla(db)
         asegurar_horarios_y_secciones(db)
         asegurar_estudiantes_secciones(db)
         db.commit()
