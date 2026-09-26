@@ -13,7 +13,7 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Matrícula validada por oferta anual, período I/II/verano, historial y prerrequisitos.
 - Portal estudiantil con Mi matrícula, Historial y Mi malla; muestra créditos y prerrequisitos aplicables.
 - El alumno ve únicamente el período regular vigente o el siguiente compatible con la paridad de su ciclo.
-- Programación completa A/B/C para el período vigente y el siguiente regular; verano se abre por curso y sección solo cuando existe demanda.
+- Programación completa A/B/C para todos los ciclos I–X y todos los períodos regulares; verano se abre por curso y sección solo cuando existe demanda.
 - Cierre de notas en lote: 0–10 desaprobado, 11–20 aprobado y avance automático de ciclo cuando corresponde.
 - Registro de notas y resultados para cursos aprobados, desaprobados o retirados.
 - Login institucional con perfiles Administrador y Estudiante, cambio de perfil dentro del panel y permisos por endpoint.
@@ -31,7 +31,7 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - El historial presenta prácticas (40 %), parcial (30 %), examen final (30 %), promedio final, promedio aritmético y promedio ponderado.
 - Orden de mérito por ciclo y tercio superior calculado desde el último período cerrado con notas.
 - Apertura de matrícula por período, malla y ciclo en tres fases: cerrada, solo tercio superior o todos; la prematrícula sigue disponible.
-- Los datos demostrativos incluyen estudiantes en las secciones A, B y C con matrículas actuales e historiales completos; las notas finales antiguas se conservan y completan sus componentes faltantes.
+- Los datos demostrativos incluyen cohortes en todos los ciclos y en las secciones A, B y C, con matrículas e historiales completos; las notas finales antiguas se conservan y completan sus componentes faltantes.
 - Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.
 - Documentación interactiva de la API con Swagger.
 

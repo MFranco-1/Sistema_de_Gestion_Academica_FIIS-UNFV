@@ -49,7 +49,20 @@ export class HorariosComponent implements OnInit {
     }).subscribe({ next: r => { this.mensaje = r.mensaje; this.cargar(); }, error: e => this.mostrarError(e) });
   }
   asignarDocente(oferta: OfertaAdministracion, codigo: string): void {
-    this.api.asignarDocente(oferta.id_oferta, codigo || undefined).subscribe({ next: r => { this.mensaje = r.mensaje; this.cargar(); }, error: e => this.mostrarError(e) });
+    this.limpiar();
+    const codigoAnterior = oferta.cod_docente;
+    this.api.asignarDocente(oferta.id_oferta, codigo || undefined).subscribe({
+      next: r => {
+        const docente = this.docentes.find(item => item.cod_docente === codigo);
+        oferta.cod_docente = codigo || undefined;
+        oferta.docente_nombre = docente?.apellidos_nombres || 'Sin asignar';
+        this.mensaje = r.mensaje;
+      },
+      error: e => {
+        oferta.cod_docente = codigoAnterior;
+        this.mostrarError(e);
+      }
+    });
   }
   abrirSeccion(): void {
     this.api.abrirSeccion({ cod_periodo: this.periodo, corr_pe: this.plan, cod_curso: this.cursoSeccion, cod_seccion: this.nuevaSeccion, vacantes: Number(this.capacidad) }).subscribe({
