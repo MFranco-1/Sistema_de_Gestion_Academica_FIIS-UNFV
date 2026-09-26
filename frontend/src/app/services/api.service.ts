@@ -109,6 +109,36 @@ export interface PeriodoAcademico {
   fecha_inicio: string;
   fecha_fin: string;
   activo: boolean;
+  matricula_accesos: string;
+}
+
+export interface RankingEstudiante {
+  puesto: number;
+  cod_estudiante: string;
+  apellidos_nombres: string;
+  promedio_aritmetico: number;
+  promedio_ponderado: number;
+  tercio_superior: boolean;
+}
+
+export interface RankingCiclo {
+  cod_periodo: string;
+  ciclo: number;
+  total_estudiantes: number;
+  limite_tercio: number;
+  estudiantes: RankingEstudiante[];
+}
+
+export interface MatriculaAccesoEstado {
+  cod_periodo: string;
+  ciclo: number;
+  fase: 'CERRADA' | 'TERCIO' | 'TODOS';
+  habilitado: boolean;
+  mensaje: string;
+  puesto?: number;
+  total_estudiantes: number;
+  limite_tercio: number;
+  tercio_superior: boolean;
 }
 
 export interface ProgramacionHorario {
@@ -367,6 +397,29 @@ export class ApiService {
     return this.http.get<PeriodoAcademico[]>(`${this.apiUrl}/periodos/`, { params });
   }
 
+  getRankingCiclo(periodo: string, ciclo: number, corrPe = 2): Observable<RankingCiclo> {
+    return this.http.get<RankingCiclo>(
+      `${this.apiUrl}/periodos/${encodeURIComponent(periodo)}/ranking/${ciclo}`,
+      { params: new HttpParams().set('corr_pe', corrPe) }
+    );
+  }
+
+  getAccesoMatricula(periodo: string, ciclo: number, corrPe = 2): Observable<MatriculaAccesoEstado> {
+    return this.http.get<MatriculaAccesoEstado>(
+      `${this.apiUrl}/periodos/${encodeURIComponent(periodo)}/matricula-acceso/${ciclo}`,
+      { params: new HttpParams().set('corr_pe', corrPe) }
+    );
+  }
+
+  actualizarAccesoMatricula(
+    periodo: string, ciclo: number, fase: 'CERRADA' | 'TERCIO' | 'TODOS', corrPe = 2
+  ): Observable<MatriculaAccesoEstado> {
+    return this.http.put<MatriculaAccesoEstado>(
+      `${this.apiUrl}/periodos/${encodeURIComponent(periodo)}/matricula-acceso/${ciclo}`,
+      { fase }, { params: new HttpParams().set('corr_pe', corrPe) }
+    );
+  }
+
   getProgramacion(corrPe: number, semestre?: number, codPeriodo?: string): Observable<ProgramacionHorario[]> {
     let params = new HttpParams().set('corr_pe', corrPe);
     if (semestre) params = params.set('semestre', semestre);
@@ -479,6 +532,18 @@ export class ApiService {
 
   getMiEstudiante(): Observable<Estudiante> {
     return this.http.get<Estudiante>(`${this.apiUrl}/estudiantes/me`);
+  }
+
+  getMiRanking(periodo: string): Observable<RankingCiclo> {
+    return this.http.get<RankingCiclo>(`${this.apiUrl}/estudiantes/me/ranking`, {
+      params: new HttpParams().set('cod_periodo', periodo)
+    });
+  }
+
+  getMiAccesoMatricula(periodo: string): Observable<MatriculaAccesoEstado> {
+    return this.http.get<MatriculaAccesoEstado>(`${this.apiUrl}/estudiantes/me/matricula-acceso`, {
+      params: new HttpParams().set('cod_periodo', periodo)
+    });
   }
 
   getPrematricula(codigo: string): Observable<Prematricula> {

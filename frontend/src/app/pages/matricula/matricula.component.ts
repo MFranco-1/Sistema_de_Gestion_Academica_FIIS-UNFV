@@ -1,13 +1,14 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { jsPDF } from 'jspdf';
-import { ApiService, BloqueHorario, Estudiante, MatriculaResumen, OfertaCurso, PeriodoAcademico } from '../../services/api.service';
+import { ApiService, BloqueHorario, Estudiante, MatriculaAccesoEstado, MatriculaResumen, OfertaCurso, PeriodoAcademico, RankingCiclo, RankingEstudiante } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 @Component({ selector: 'app-matricula', templateUrl: './matricula.component.html', styleUrls: ['./matricula.component.css'] })
 export class MatriculaComponent implements OnInit {
   estudiante?: Estudiante;
   private periodosBase: PeriodoAcademico[] = [];
+  private historialCargado = false;
   periodos: PeriodoAcademico[] = [];
   ofertas: OfertaCurso[] = [];
   matriculas: MatriculaResumen[] = [];
@@ -19,6 +20,8 @@ export class MatriculaComponent implements OnInit {
   cargando = true;
   confirmando = false;
   ultimaMatricula?: MatriculaResumen;
+  ranking?: RankingCiclo;
+  accesoMatricula?: MatriculaAccesoEstado;
   fotoPerfil = '';
   readonly diasHorario = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO'];
 
@@ -41,7 +44,19 @@ export class MatriculaComponent implements OnInit {
         this.estudiante = estudiante;
         this.fotoPerfil = localStorage.getItem(`fiis_foto_${estudiante.cod_estudiante}`) || '';
         this.cargando = false;
-        this.actualizarPeriodosMatricula();
+        this.historialCargado = false;
+        this.api.getMatriculasEstudiante(estudiante.cod_estudiante).subscribe({
+          next: matriculas => {
+            this.matriculas = matriculas;
+            this.historialCargado = true;
+            this.actualizarPeriodosMatricula();
+          },
+          error: () => {
+            this.matriculas = [];
+            this.historialCargado = true;
+            this.actualizarPeriodosMatricula();
+          }
+        });
       },
       error: error => { this.cargando = false; this.mostrarError(error); }
     });
@@ -50,6 +65,7 @@ export class MatriculaComponent implements OnInit {
   cargarOfertas(): void {
     if (!this.estudiante || !this.periodoSeleccionado) return;
     this.seleccionadas.clear();
+    this.cargarEstadoMatricula();
     this.api.getOfertasEstudiante(this.estudiante.cod_estudiante, this.periodoSeleccionado).subscribe({
       next: data => {
         this.ofertas = data;
@@ -67,13 +83,24 @@ export class MatriculaComponent implements OnInit {
   }
 
   private actualizarPeriodosMatricula(): void {
-    if (!this.estudiante || !this.periodosBase.length) return;
+    if (!this.estudiante || !this.periodosBase.length || !this.historialCargado) return;
     const tipoCorrespondiente = this.estudiante.ciclo_actual % 2 ? 'I' : 'II';
     const activo = this.periodosBase.find(periodo => periodo.activo);
+    const matriculaActiva = activo
+      ? this.matriculas.find(matricula => matricula.cod_periodo === activo.cod_periodo)
+      : undefined;
+    const regularesCronologicos = this.periodosBase
+      .filter(periodo => periodo.tipo_periodo !== 'VERANO')
+      .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
     const regulares = this.periodosBase
       .filter(periodo => periodo.tipo_periodo === tipoCorrespondiente)
       .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
-    const correspondiente = regulares.find(periodo => periodo.activo)
+    const siguienteAlCierre = activo && matriculaActiva?.estado === 'CERRADA'
+      ? regularesCronologicos.find(periodo => periodo.fecha_inicio > activo.fecha_inicio)
+      : undefined;
+    const correspondiente = siguienteAlCierre
+      || (matriculaActiva?.estado === 'REGISTRADA' ? activo : undefined)
+      || regulares.find(periodo => periodo.activo)
       || (activo ? regulares.find(periodo => periodo.fecha_inicio > activo.fecha_inicio) : undefined)
       || regulares.find(periodo => periodo.fecha_fin >= new Date().toISOString().slice(0, 10))
       || regulares[regulares.length - 1];
@@ -86,6 +113,19 @@ export class MatriculaComponent implements OnInit {
       this.periodoSeleccionado = this.periodos[0]?.cod_periodo || '';
     }
     this.cargarOfertas();
+  }
+
+  private cargarEstadoMatricula(): void {
+    this.ranking = undefined;
+    this.accesoMatricula = undefined;
+    this.api.getMiRanking(this.periodoSeleccionado).subscribe({
+      next: ranking => this.ranking = ranking,
+      error: () => this.ranking = undefined
+    });
+    this.api.getMiAccesoMatricula(this.periodoSeleccionado).subscribe({
+      next: acceso => this.accesoMatricula = acceso,
+      error: error => this.mostrarError(error)
+    });
   }
 
   alternarOferta(id: number, seleccionada: boolean): void {
@@ -126,12 +166,12 @@ export class MatriculaComponent implements OnInit {
   }
 
   abrirConfirmacion(): void {
-    if (!this.seleccionadas.size || this.crucePrematricula) return;
+    if (!this.seleccionadas.size || this.crucePrematricula || !this.puedeRegistrar) return;
     this.confirmando = true;
   }
 
   registrarMatricula(): void {
-    if (!this.estudiante || !this.seleccionadas.size) return;
+    if (!this.estudiante || !this.seleccionadas.size || !this.puedeRegistrar) return;
     this.mensaje = ''; this.error = '';
     this.api.crearMatricula(this.estudiante.cod_estudiante, this.periodoSeleccionado, [...this.seleccionadas]).subscribe({
       next: matricula => {
@@ -231,6 +271,12 @@ export class MatriculaComponent implements OnInit {
   }
   get ofertasSeleccionadas(): OfertaCurso[] {
     return this.ofertas.filter(item => this.seleccionadas.has(item.id_oferta));
+  }
+  get miRanking(): RankingEstudiante | undefined {
+    return this.ranking?.estudiantes.find(item => item.cod_estudiante === this.estudiante?.cod_estudiante);
+  }
+  get puedeRegistrar(): boolean {
+    return !!this.accesoMatricula?.habilitado;
   }
   get seccionesDisponibles(): string[] {
     return [...new Set(this.ofertas.map(item => item.cod_seccion))].sort((a, b) => a.localeCompare(b));

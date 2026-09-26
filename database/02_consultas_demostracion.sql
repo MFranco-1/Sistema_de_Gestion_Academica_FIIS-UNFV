@@ -155,3 +155,26 @@ JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
             AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
 WHERE p.tipo_periodo = 'VERANO' AND o.activo = TRUE
 ORDER BY p.fecha_inicio DESC, c.cod_curso, o.cod_seccion;
+
+-- 13. Ranking por promedio ponderado y pertenencia al tercio superior.
+WITH promedios AS (
+  SELECT e.cod_estudiante, e.apellidos_nombres,
+         ROUND(AVG(md.nota_final)::NUMERIC, 2) AS promedio_aritmetico,
+         ROUND(SUM(md.nota_final * c.cred)::NUMERIC / NULLIF(SUM(c.cred), 0), 2) AS promedio_ponderado
+  FROM estudiante e
+  JOIN matricula m ON m.cod_estudiante = e.cod_estudiante
+  JOIN matricula_detalle md ON md.id_matricula = m.id_matricula
+  JOIN oferta_curso o ON o.id_oferta = md.id_oferta
+  JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+              AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+  WHERE e.corr_pe = 2 AND e.ciclo_actual = 3 AND m.estado = 'CERRADA'
+    AND md.nota_final IS NOT NULL AND md.resultado <> 'RETIRADO'
+  GROUP BY e.cod_estudiante, e.apellidos_nombres
+), ranking AS (
+  SELECT *, ROW_NUMBER() OVER (ORDER BY promedio_ponderado DESC, promedio_aritmetico DESC, cod_estudiante) AS puesto,
+         COUNT(*) OVER () AS total_estudiantes
+  FROM promedios
+)
+SELECT *, puesto <= CEIL(total_estudiantes / 3.0) AS tercio_superior
+FROM ranking
+ORDER BY puesto;

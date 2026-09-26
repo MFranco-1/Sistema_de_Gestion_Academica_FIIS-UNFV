@@ -2,7 +2,7 @@ import json
 from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
-from sqlalchemy import and_, case, func, not_, or_
+from sqlalchemy import and_, case, func, not_, or_, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -197,6 +197,133 @@ def get_periodos(db: Session, solo_activos: bool = False):
     if solo_activos:
         query = query.filter(models.PeriodoAcademico.activo.is_(True))
     return query.order_by(models.PeriodoAcademico.fecha_inicio.desc()).all()
+
+
+def get_ranking_ciclo(
+    db: Session, cod_periodo: str, ciclo: int,
+    corr_pe: int = 2, cod_fac: int = 1, cod_esc: int = 1,
+):
+    periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=cod_periodo).first()
+    if not periodo:
+        raise HTTPException(status_code=404, detail="El período académico no existe.")
+    filas = db.execute(text("""
+        WITH promedios AS (
+            SELECT e.cod_estudiante, e.apellidos_nombres,
+                   ROUND(AVG(md.nota_final)::NUMERIC, 2) AS promedio_aritmetico,
+                   ROUND(
+                       SUM(md.nota_final * c.cred)::NUMERIC / NULLIF(SUM(c.cred), 0), 2
+                   ) AS promedio_ponderado,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY e.cod_estudiante
+                       ORDER BY pa.fecha_inicio DESC, m.id_matricula DESC
+                   ) AS periodo_reciente
+            FROM estudiante e
+            JOIN matricula m ON m.cod_estudiante = e.cod_estudiante
+            JOIN periodo_academico pa ON pa.cod_periodo = m.cod_periodo
+            JOIN matricula_detalle md ON md.id_matricula = m.id_matricula
+            JOIN oferta_curso o ON o.id_oferta = md.id_oferta
+            JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+                        AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+            WHERE e.cod_fac = :cod_fac AND e.cod_esc = :cod_esc
+              AND e.corr_pe = :corr_pe AND e.ciclo_actual = :ciclo
+              AND e.estado = 'ACTIVO' AND m.estado = 'CERRADA'
+              AND pa.fecha_inicio < :fecha_objetivo
+              AND md.nota_final IS NOT NULL AND md.resultado <> 'RETIRADO'
+            GROUP BY e.cod_estudiante, e.apellidos_nombres,
+                     pa.fecha_inicio, m.id_matricula
+        ), actuales AS (
+            SELECT cod_estudiante, apellidos_nombres,
+                   promedio_aritmetico, promedio_ponderado
+            FROM promedios
+            WHERE periodo_reciente = 1
+        )
+        SELECT ROW_NUMBER() OVER (
+                   ORDER BY promedio_ponderado DESC, promedio_aritmetico DESC,
+                            cod_estudiante
+               ) AS puesto,
+               COUNT(*) OVER () AS total_estudiantes,
+               cod_estudiante, apellidos_nombres,
+               promedio_aritmetico, promedio_ponderado
+        FROM actuales
+        ORDER BY puesto
+    """), {
+        "cod_fac": cod_fac, "cod_esc": cod_esc, "corr_pe": corr_pe,
+        "ciclo": ciclo, "fecha_objetivo": periodo.fecha_inicio,
+    }).mappings().all()
+    total = int(filas[0]["total_estudiantes"]) if filas else 0
+    limite = (total + 2) // 3
+    return {
+        "cod_periodo": cod_periodo,
+        "ciclo": ciclo,
+        "total_estudiantes": total,
+        "limite_tercio": limite,
+        "estudiantes": [{
+            "puesto": int(fila["puesto"]),
+            "cod_estudiante": fila["cod_estudiante"],
+            "apellidos_nombres": fila["apellidos_nombres"],
+            "promedio_aritmetico": float(fila["promedio_aritmetico"]),
+            "promedio_ponderado": float(fila["promedio_ponderado"]),
+            "tercio_superior": int(fila["puesto"]) <= limite,
+        } for fila in filas],
+    }
+
+
+def _fases_matricula(periodo: models.PeriodoAcademico) -> dict[str, str]:
+    try:
+        datos = json.loads(periodo.matricula_accesos or "{}")
+        return {
+            str(ciclo): fase for ciclo, fase in datos.items()
+            if all(parte.isdigit() for parte in str(ciclo).split(":"))
+            and len(str(ciclo).split(":")) <= 2
+            and fase in {"CERRADA", "TERCIO", "TODOS"}
+        }
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def get_estado_acceso_matricula(
+    db: Session, cod_periodo: str, ciclo: int, cod_estudiante: str | None = None,
+    corr_pe: int = 2, cod_fac: int = 1, cod_esc: int = 1,
+):
+    periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=cod_periodo).first()
+    if not periodo:
+        raise HTTPException(status_code=404, detail="El período académico no existe.")
+    fases = _fases_matricula(periodo)
+    fase = fases.get(f"{corr_pe}:{ciclo}", fases.get(str(ciclo), "CERRADA"))
+    ranking = get_ranking_ciclo(db, cod_periodo, ciclo, corr_pe, cod_fac, cod_esc)
+    fila = next((item for item in ranking["estudiantes"] if item["cod_estudiante"] == cod_estudiante), None)
+    pertenece_tercio = bool(fila and fila["tercio_superior"])
+    habilitado = fase == "TODOS" or (fase == "TERCIO" and pertenece_tercio)
+    if fase == "CERRADA":
+        mensaje = "La matrícula oficial aún no está habilitada para este ciclo. Puede preparar y guardar su prematrícula."
+    elif fase == "TERCIO" and not pertenece_tercio:
+        mensaje = "La matrícula está habilitada temporalmente solo para estudiantes del tercio superior. Puede conservar su prematrícula."
+    elif fase == "TERCIO":
+        mensaje = "Matrícula habilitada por pertenecer al tercio superior."
+    else:
+        mensaje = "Matrícula habilitada para todos los estudiantes del ciclo."
+    return {
+        "cod_periodo": cod_periodo, "ciclo": ciclo, "fase": fase,
+        "habilitado": habilitado, "mensaje": mensaje,
+        "puesto": fila["puesto"] if fila else None,
+        "total_estudiantes": ranking["total_estudiantes"],
+        "limite_tercio": ranking["limite_tercio"],
+        "tercio_superior": pertenece_tercio,
+    }
+
+
+def actualizar_acceso_matricula(
+    db: Session, cod_periodo: str, ciclo: int, datos: schemas.MatriculaAccesoUpdate,
+    corr_pe: int = 2,
+):
+    periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=cod_periodo).first()
+    if not periodo:
+        raise HTTPException(status_code=404, detail="El período académico no existe.")
+    fases = _fases_matricula(periodo)
+    fases[f"{corr_pe}:{ciclo}"] = datos.fase
+    periodo.matricula_accesos = json.dumps(fases, separators=(",", ":"), sort_keys=True)
+    _commit(db, "No se pudo actualizar la apertura de matrícula.")
+    return get_estado_acceso_matricula(db, cod_periodo, ciclo, corr_pe=corr_pe)
 
 
 def get_programacion(
@@ -1134,12 +1261,21 @@ def abrir_seccion(db: Session, datos: schemas.OfertaSeccionCreate):
     return {"mensaje": f"Sección {datos.cod_seccion} abierta con capacidad para {datos.vacantes} estudiantes."}
 
 
-def crear_matricula(db: Session, datos: schemas.MatriculaCreate):
+def crear_matricula(
+    db: Session, datos: schemas.MatriculaCreate, validar_acceso: bool = True,
+):
     estudiante = db.query(models.Estudiante).filter_by(
         cod_estudiante=datos.cod_estudiante,
     ).first()
     if not estudiante:
         raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    if validar_acceso:
+        acceso = get_estado_acceso_matricula(
+            db, datos.cod_periodo, estudiante.ciclo_actual, estudiante.cod_estudiante,
+            estudiante.corr_pe, estudiante.cod_fac, estudiante.cod_esc,
+        )
+        if not acceso["habilitado"]:
+            raise HTTPException(status_code=403, detail=acceso["mensaje"])
     if db.query(models.Matricula).filter_by(
         cod_estudiante=datos.cod_estudiante, cod_periodo=datos.cod_periodo,
     ).first():
@@ -1363,7 +1499,7 @@ def registrar_resultados_lote(
 
 def _cerrar_matricula_si_corresponde(db: Session, id_matricula: int) -> None:
     matricula = db.query(models.Matricula).filter_by(id_matricula=id_matricula).first()
-    if not matricula or matricula.estado == "CERRADA":
+    if not matricula:
         return
     detalles = db.query(models.MatriculaDetalle).filter_by(id_matricula=id_matricula).all()
     if not detalles or any(item.resultado == "MATRICULADO" for item in detalles):
@@ -1373,8 +1509,8 @@ def _cerrar_matricula_si_corresponde(db: Session, id_matricula: int) -> None:
         estudiante = db.query(models.Estudiante).filter_by(
             cod_estudiante=matricula.cod_estudiante,
         ).first()
-        if estudiante and estudiante.ciclo_actual < 10:
-            estudiante.ciclo_actual += 1
+        if estudiante and estudiante.ciclo_actual <= matricula.ciclo_matricula:
+            estudiante.ciclo_actual = min(matricula.ciclo_matricula + 1, 10)
 
 
 def _usuario_dict(usuario: models.Usuario):

@@ -1,7 +1,7 @@
 import os
 from typing import List
 
-from fastapi import Depends, FastAPI, HTTPException, Query, status
+from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -28,6 +28,9 @@ with engine.begin() as migration_connection:
     )
     migration_connection.exec_driver_sql(
         "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_examen_final INTEGER"
+    )
+    migration_connection.exec_driver_sql(
+        "ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS matricula_accesos VARCHAR(500) NOT NULL DEFAULT ''"
     )
     migration_connection.exec_driver_sql("""
         UPDATE matricula_detalle
@@ -188,6 +191,39 @@ def read_periodos(solo_activos: bool = False, db: Session = Depends(get_db)):
     return crud.get_periodos(db, solo_activos)
 
 
+@app.get("/periodos/{cod_periodo}/ranking/{ciclo}", response_model=schemas.RankingCiclo)
+def read_ranking_ciclo(
+    cod_periodo: str, ciclo: int = Path(ge=1, le=10), corr_pe: int = 2,
+    db: Session = Depends(get_db),
+    _: auth.UsuarioActual = Depends(auth.require_permission("GESTION_CURRICULAR")),
+):
+    return crud.get_ranking_ciclo(db, cod_periodo, ciclo, corr_pe)
+
+
+@app.get(
+    "/periodos/{cod_periodo}/matricula-acceso/{ciclo}",
+    response_model=schemas.MatriculaAccesoEstado,
+)
+def read_acceso_matricula(
+    cod_periodo: str, ciclo: int = Path(ge=1, le=10), corr_pe: int = 2,
+    db: Session = Depends(get_db),
+    _: auth.UsuarioActual = Depends(auth.require_permission("GESTION_CURRICULAR")),
+):
+    return crud.get_estado_acceso_matricula(db, cod_periodo, ciclo, corr_pe=corr_pe)
+
+
+@app.put(
+    "/periodos/{cod_periodo}/matricula-acceso/{ciclo}",
+    response_model=schemas.MatriculaAccesoEstado,
+)
+def update_acceso_matricula(
+    cod_periodo: str, datos: schemas.MatriculaAccesoUpdate,
+    ciclo: int = Path(ge=1, le=10), corr_pe: int = 2, db: Session = Depends(get_db),
+    _: auth.UsuarioActual = Depends(auth.require_permission("GESTION_CURRICULAR")),
+):
+    return crud.actualizar_acceso_matricula(db, cod_periodo, ciclo, datos, corr_pe)
+
+
 @app.get("/programacion/", response_model=List[schemas.ProgramacionHorario])
 def read_programacion(
     corr_pe: int | None = None,
@@ -339,6 +375,36 @@ def read_mi_estudiante(
     return estudiantes[0]
 
 
+@app.get("/estudiantes/me/ranking", response_model=schemas.RankingCiclo)
+def read_mi_ranking(
+    cod_periodo: str,
+    actual: auth.UsuarioActual = Depends(auth.require_student),
+    db: Session = Depends(get_db),
+):
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=actual.cod_estudiante).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="No se encontró la ficha del estudiante.")
+    return crud.get_ranking_ciclo(
+        db, cod_periodo, estudiante.ciclo_actual, estudiante.corr_pe,
+        estudiante.cod_fac, estudiante.cod_esc,
+    )
+
+
+@app.get("/estudiantes/me/matricula-acceso", response_model=schemas.MatriculaAccesoEstado)
+def read_mi_acceso_matricula(
+    cod_periodo: str,
+    actual: auth.UsuarioActual = Depends(auth.require_student),
+    db: Session = Depends(get_db),
+):
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=actual.cod_estudiante).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="No se encontró la ficha del estudiante.")
+    return crud.get_estado_acceso_matricula(
+        db, cod_periodo, estudiante.ciclo_actual, estudiante.cod_estudiante,
+        estudiante.corr_pe, estudiante.cod_fac, estudiante.cod_esc,
+    )
+
+
 @app.post("/estudiantes/", response_model=schemas.Estudiante, status_code=status.HTTP_201_CREATED)
 def create_estudiante(datos: schemas.EstudianteCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_ESTUDIANTES"))):
     return crud.crear_estudiante(db, datos)
@@ -408,7 +474,8 @@ def create_matricula(
         or actual.cod_estudiante != datos.cod_estudiante
     ):
         raise HTTPException(status_code=403, detail="Solo puede registrar su propia matrícula.")
-    return crud.crear_matricula(db, datos)
+    validar_acceso = "GESTION_MATRICULAS" not in actual.permisos
+    return crud.crear_matricula(db, datos, validar_acceso=validar_acceso)
 
 
 @app.put(

@@ -4,6 +4,65 @@
   <p>Seleccione una malla y después un semestre para consultar sus cursos.</p>
 </header>
 
+<section class="enrollment-control">
+  <div class="control-heading">
+    <div>
+      <span>CONTROL DE ACCESO</span>
+      <h2>Apertura de matrícula</h2>
+      <p>Habilite primero al tercio superior y, cuando corresponda, a todos los estudiantes del ciclo.</p>
+    </div>
+    <span class="phase-badge" [class.phase-open]="accesoControl?.fase === 'TODOS'" [class.phase-priority]="accesoControl?.fase === 'TERCIO'">
+      {{ accesoControl?.fase === 'TODOS' ? 'ABIERTA PARA TODOS' : accesoControl?.fase === 'TERCIO' ? 'SOLO TERCIO SUPERIOR' : 'MATRÍCULA CERRADA' }}
+    </span>
+  </div>
+
+  <div class="control-filters">
+    <div class="field">
+      <label>PERÍODO ACADÉMICO</label>
+      <select [(ngModel)]="periodoControl" (change)="cargarControlMatricula()">
+        <option *ngFor="let periodo of periodosControl" [ngValue]="periodo.cod_periodo">{{ periodo.den_periodo }}</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>CICLO</label>
+      <select [(ngModel)]="cicloControl" (change)="cargarControlMatricula()">
+        <option *ngFor="let semestre of semestres" [ngValue]="semestre">Ciclo {{ semestreRomano(semestre) }}</option>
+      </select>
+    </div>
+    <div class="phase-actions">
+      <button type="button" class="close-access" (click)="actualizarFase('CERRADA')" [disabled]="accesoControl?.fase === 'CERRADA'">CERRAR</button>
+      <button type="button" class="priority-access" (click)="actualizarFase('TERCIO')" [disabled]="accesoControl?.fase === 'TERCIO'">HABILITAR TERCIO</button>
+      <button type="button" class="all-access" (click)="actualizarFase('TODOS')" [disabled]="accesoControl?.fase === 'TODOS'">HABILITAR TODOS</button>
+    </div>
+  </div>
+
+  <div class="control-message success" *ngIf="mensajeControl">{{ mensajeControl }}</div>
+  <div class="control-message error" *ngIf="errorControl">{{ errorControl }}</div>
+
+  <div class="ranking-summary" *ngIf="rankingControl as ranking">
+    <div><span>ESTUDIANTES EVALUADOS</span><strong>{{ ranking.total_estudiantes }}</strong></div>
+    <div><span>LÍMITE DEL TERCIO</span><strong>{{ ranking.limite_tercio }} estudiante(s)</strong></div>
+    <p>El ranking usa el último período cerrado con notas. La prematrícula permanece disponible en cualquier fase.</p>
+  </div>
+
+  <div class="ranking-table-wrap" *ngIf="rankingControl?.estudiantes?.length; else sinRanking">
+    <table class="ranking-table">
+      <thead><tr><th>Puesto</th><th>Código</th><th>Estudiante</th><th>Promedio aritmético</th><th>Promedio ponderado</th><th>Condición</th></tr></thead>
+      <tbody>
+        <tr *ngFor="let estudiante of rankingControl?.estudiantes">
+          <td class="rank-position">{{ estudiante.puesto }}</td>
+          <td>{{ estudiante.cod_estudiante }}</td>
+          <td>{{ estudiante.apellidos_nombres }}</td>
+          <td>{{ estudiante.promedio_aritmetico | number:'1.2-2' }}</td>
+          <td><strong>{{ estudiante.promedio_ponderado | number:'1.2-2' }}</strong></td>
+          <td><span class="third-badge" *ngIf="estudiante.tercio_superior">TERCIO SUPERIOR</span><span *ngIf="!estudiante.tercio_superior">ORDEN REGULAR</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <ng-template #sinRanking><div class="empty-ranking">Aún no hay un período cerrado con notas para calcular el ranking de este ciclo.</div></ng-template>
+</section>
+
 <section class="management-panel">
   <div class="panel-title">Parámetros de consulta</div>
   <div class="filter-flow">Malla <span>›</span> Semestre <span>›</span> Cursos <span>›</span> Detalle</div>

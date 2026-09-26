@@ -104,8 +104,50 @@ class PeriodoAcademico(BaseModel):
     fecha_inicio: date
     fecha_fin: date
     activo: bool
+    matricula_accesos: str = ""
     class Config:
         from_attributes = True
+
+
+class RankingEstudiante(BaseModel):
+    puesto: int
+    cod_estudiante: str
+    apellidos_nombres: str
+    promedio_aritmetico: float
+    promedio_ponderado: float
+    tercio_superior: bool
+
+
+class RankingCiclo(BaseModel):
+    cod_periodo: str
+    ciclo: int
+    total_estudiantes: int
+    limite_tercio: int
+    estudiantes: list[RankingEstudiante] = []
+
+
+class MatriculaAccesoUpdate(BaseModel):
+    fase: str
+
+    @field_validator("fase")
+    @classmethod
+    def validar_fase(cls, valor: str) -> str:
+        valor = valor.strip().upper()
+        if valor not in {"CERRADA", "TERCIO", "TODOS"}:
+            raise ValueError("La fase debe ser CERRADA, TERCIO o TODOS.")
+        return valor
+
+
+class MatriculaAccesoEstado(BaseModel):
+    cod_periodo: str
+    ciclo: int
+    fase: str
+    habilitado: bool
+    mensaje: str
+    puesto: Optional[int] = None
+    total_estudiantes: int = 0
+    limite_tercio: int = 0
+    tercio_superior: bool = False
 
 
 class ProgramacionHorario(BaseModel):

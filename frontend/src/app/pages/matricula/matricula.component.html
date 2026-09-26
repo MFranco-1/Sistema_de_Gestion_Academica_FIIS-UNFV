@@ -23,8 +23,16 @@
   </div>
 </section>
 
+<section class="ranking-panel" *ngIf="ranking">
+  <header><div><small>ORDEN DE MÉRITO DEL CICLO {{ semestreRomano(ranking.ciclo) }}</small><h2>Mi posición académica</h2></div><span *ngIf="miRanking" [class.third]="miRanking.tercio_superior">Puesto {{ miRanking.puesto }} de {{ ranking.total_estudiantes }}<strong>{{ miRanking.tercio_superior ? 'TERCIO SUPERIOR' : 'ORDEN GENERAL' }}</strong></span></header>
+  <div class="ranking-summary" *ngIf="miRanking as posicion"><div><small>PUESTO</small><strong>{{ posicion.puesto }}</strong></div><div><small>PROMEDIO ARITMÉTICO</small><strong>{{ posicion.promedio_aritmetico }}</strong></div><div><small>PROMEDIO PONDERADO</small><strong>{{ posicion.promedio_ponderado }}</strong></div><div><small>ALUMNOS EN TERCIO</small><strong>{{ ranking.limite_tercio }} de {{ ranking.total_estudiantes }}</strong></div></div>
+  <div class="ranking-empty" *ngIf="!ranking.estudiantes.length">Aún no existe un período cerrado con notas para calcular el orden de mérito de este ciclo.</div>
+  <div class="ranking-table" *ngIf="ranking.estudiantes.length"><table><thead><tr><th>Puesto</th><th>Código</th><th>Estudiante</th><th>Promedio ponderado</th><th>Condición</th></tr></thead><tbody><tr *ngFor="let item of ranking.estudiantes" [class.me]="item.cod_estudiante === estudiante?.cod_estudiante"><td><strong>{{ item.puesto }}</strong></td><td>{{ item.cod_estudiante }}</td><td>{{ item.apellidos_nombres }}</td><td>{{ item.promedio_ponderado }}</td><td><span *ngIf="item.tercio_superior">Tercio superior</span><span *ngIf="!item.tercio_superior">Orden general</span></td></tr></tbody></table></div>
+</section>
+
 <section class="academic-section" *ngIf="estudiante">
   <div class="section-title"><div><span>MATRÍCULA ACADÉMICA</span><h2>Cursos disponibles</h2></div></div>
+  <div class="enrollment-access" *ngIf="accesoMatricula" [class.enabled]="accesoMatricula.habilitado"><strong>{{ accesoMatricula.habilitado ? 'Matrícula oficial habilitada' : 'Matrícula oficial no habilitada' }}</strong><span>{{ accesoMatricula.mensaje }}</span><small>La prematrícula permanece disponible y no ocupa vacantes.</small></div>
   <div class="period-selector"><div class="field"><label>PERÍODO ACADÉMICO</label><select [(ngModel)]="periodoSeleccionado" (change)="cargarOfertas()"><option *ngFor="let periodo of periodos" [value]="periodo.cod_periodo">{{ periodo.den_periodo }}</option></select></div><p>Al elegir una sección se incluyen juntas la teoría y la práctica del curso, en la misma sección y aula. No es posible combinar dos secciones del mismo curso.</p></div>
 
   <div class="section-filter" *ngIf="seccionesDisponibles.length">
@@ -55,7 +63,7 @@
     <div class="cross-warning" *ngIf="crucePrematricula"><strong>Cruce detectado:</strong> {{ crucePrematricula }}</div>
     <div class="week-grid"><div class="day-column" *ngFor="let dia of diasHorario"><header>{{ dia }}</header><div class="day-empty" *ngIf="!bloquesDia(dia).length">Sin clases</div><article *ngFor="let item of bloquesDia(dia)"><strong>{{ item.oferta.cod_curso }}</strong><span>{{ item.oferta.den_curso }}</span><b>{{ item.bloque.hora_inicio.slice(0,5) }}–{{ item.bloque.hora_fin.slice(0,5) }}</b><small>Sección {{ item.oferta.cod_seccion }} · {{ item.bloque.tipo_sesion === 'T' ? 'Teoría' : 'Práctica' }} · {{ item.bloque.aula }}</small><small>Docente: {{ item.oferta.docente_nombre }}</small></article></div></div>
   </section>
-  <div class="enroll-action"><span>{{ seleccionadas.size }} curso(s) · {{ creditosSeleccionados }} crédito(s)</span><button class="secondary" type="button" (click)="guardarPrematricula()" [disabled]="!seleccionadas.size">GUARDAR PREMATRÍCULA</button><button class="primary" type="button" (click)="abrirConfirmacion()" [disabled]="!seleccionadas.size || !!crucePrematricula">REGISTRAR MATRÍCULA</button></div>
+  <div class="enroll-action"><span>{{ seleccionadas.size }} curso(s) · {{ creditosSeleccionados }} crédito(s)</span><button class="secondary" type="button" (click)="guardarPrematricula()" [disabled]="!seleccionadas.size">GUARDAR PREMATRÍCULA</button><button class="primary" type="button" (click)="abrirConfirmacion()" [disabled]="!seleccionadas.size || !!crucePrematricula || !puedeRegistrar">REGISTRAR MATRÍCULA</button></div>
 </section>
 
 <div class="modal-backdrop" *ngIf="confirmando" (click)="confirmando=false">
@@ -64,6 +72,6 @@
     <p>Revise los cursos antes de registrar. Después de confirmar, esta selección será su matrícula oficial del período <strong>{{ periodoSeleccionado }}</strong>.</p>
     <div class="confirm-list"><div *ngFor="let oferta of ofertasSeleccionadas"><span><strong>{{ oferta.cod_curso }}</strong> · {{ oferta.den_curso }}<small>Sección {{ oferta.cod_seccion }} · {{ oferta.docente_nombre }}</small></span><b>{{ oferta.cred }} cr.</b></div></div>
     <div class="confirm-total"><span>Total del ciclo</span><strong>{{ creditosSeleccionados }} créditos</strong></div>
-    <footer><button class="secondary" type="button" (click)="confirmando=false">CANCELAR</button><button class="primary" type="button" (click)="registrarMatricula()">CONFIRMAR MATRÍCULA</button></footer>
+    <footer><button class="secondary" type="button" (click)="confirmando=false">CANCELAR</button><button class="primary" type="button" (click)="registrarMatricula()" [disabled]="!puedeRegistrar">CONFIRMAR MATRÍCULA</button></footer>
   </section>
 </div>

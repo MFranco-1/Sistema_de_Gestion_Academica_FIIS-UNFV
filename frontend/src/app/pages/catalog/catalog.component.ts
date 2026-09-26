@@ -1,8 +1,8 @@
 import { Component, OnInit } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import {
-  ApiService, Curso, CursoDetalle, PeriodoAcademico, PlanEstudio,
-  ProgramacionHorario, ResumenSemestre
+  ApiService, Curso, CursoDetalle, MatriculaAccesoEstado, PeriodoAcademico, PlanEstudio,
+  ProgramacionHorario, RankingCiclo, ResumenSemestre
 } from '../../services/api.service';
 
 @Component({
@@ -15,12 +15,19 @@ export class CatalogComponent implements OnInit {
   semestres: number[] = [];
   cursos: Curso[] = [];
   periodos: PeriodoAcademico[] = [];
+  periodosControl: PeriodoAcademico[] = [];
   programacion: ProgramacionHorario[] = [];
+  rankingControl?: RankingCiclo;
+  accesoControl?: MatriculaAccesoEstado;
   resumen?: ResumenSemestre;
   cursoDetalle?: CursoDetalle;
   selectedPlan?: number;
   selectedSemester?: number;
   selectedPeriodo?: string;
+  periodoControl = '';
+  cicloControl = 1;
+  mensajeControl = '';
+  errorControl = '';
   buscar = '';
   cargando = false;
   cargandoSemestres = false;
@@ -32,9 +39,16 @@ export class CatalogComponent implements OnInit {
     this.route.fragment.subscribe(fragment => {
       if (fragment) setTimeout(() => this.desplazarA(fragment));
     });
-    this.apiService.getPeriodos(true).subscribe(data => {
-      this.periodos = data;
-      this.selectedPeriodo = data.find(p => p.activo)?.cod_periodo ?? data[0]?.cod_periodo;
+    this.apiService.getPeriodos().subscribe(data => {
+      const activo = data.find(p => p.activo);
+      this.periodos = data.filter(p => p.activo);
+      this.selectedPeriodo = activo?.cod_periodo ?? data[0]?.cod_periodo;
+      this.periodosControl = data
+        .filter(p => !activo || p.fecha_inicio >= activo.fecha_inicio)
+        .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio))
+        .slice(0, 4);
+      this.periodoControl = activo?.cod_periodo ?? this.periodosControl[0]?.cod_periodo ?? '';
+      this.cargarControlMatricula();
     });
     this.apiService.getPlanes().subscribe({
       next: data => {
@@ -64,12 +78,44 @@ export class CatalogComponent implements OnInit {
     this.apiService.getSemestres(Number(this.selectedPlan)).subscribe({
       next: data => {
         this.semestres = data;
+        if (!data.includes(this.cicloControl)) this.cicloControl = data[0] || 1;
         this.cargandoSemestres = false;
+        this.cargarControlMatricula();
       },
       error: () => {
         this.error = 'No se pudieron cargar los semestres de la malla.';
         this.cargandoSemestres = false;
       }
+    });
+  }
+
+  cargarControlMatricula(): void {
+    if (!this.periodoControl || !this.cicloControl || !this.selectedPlan) return;
+    this.errorControl = '';
+    this.apiService.getAccesoMatricula(this.periodoControl, this.cicloControl, Number(this.selectedPlan)).subscribe({
+      next: acceso => this.accesoControl = acceso,
+      error: () => this.errorControl = 'No se pudo consultar la apertura de matrícula.'
+    });
+    this.apiService.getRankingCiclo(
+      this.periodoControl, this.cicloControl, Number(this.selectedPlan)
+    ).subscribe({
+      next: ranking => this.rankingControl = ranking,
+      error: () => this.rankingControl = undefined
+    });
+  }
+
+  actualizarFase(fase: 'CERRADA' | 'TERCIO' | 'TODOS'): void {
+    if (!this.periodoControl || !this.cicloControl) return;
+    this.mensajeControl = '';
+    this.errorControl = '';
+    this.apiService.actualizarAccesoMatricula(
+      this.periodoControl, this.cicloControl, fase, Number(this.selectedPlan)
+    ).subscribe({
+      next: acceso => {
+        this.accesoControl = acceso;
+        this.mensajeControl = acceso.mensaje;
+      },
+      error: () => this.errorControl = 'No se pudo cambiar la apertura de matrícula.'
     });
   }
 

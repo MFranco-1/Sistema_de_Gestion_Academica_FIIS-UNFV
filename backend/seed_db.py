@@ -60,6 +60,9 @@ def migrar_periodos_y_ofertas() -> None:
     with engine.begin() as connection:
         connection.exec_driver_sql("ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS anio INTEGER")
         connection.exec_driver_sql("ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS tipo_periodo VARCHAR(10)")
+        connection.exec_driver_sql(
+            "ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS matricula_accesos VARCHAR(500) NOT NULL DEFAULT ''"
+        )
         connection.execute(text("""
             UPDATE periodo_academico
             SET anio = CAST(SUBSTRING(cod_periodo FROM 1 FOR 4) AS INTEGER),
@@ -142,6 +145,31 @@ def inicializar_estudiantes_primer_ciclo() -> None:
             connection.exec_driver_sql(
                 "COMMENT ON TABLE estudiante IS 'ciclos_inicializados_2026'"
             )
+
+
+def reparar_avance_ciclos() -> None:
+    """Repara matrículas cerradas antiguas que no actualizaron el ciclo del alumno."""
+    with engine.begin() as connection:
+        connection.execute(text("""
+            WITH avances AS (
+                SELECT m.cod_estudiante,
+                       LEAST(MAX(m.ciclo_matricula) + 1, 10) AS ciclo_correspondiente
+                FROM matricula m
+                WHERE m.estado = 'CERRADA'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM matricula_detalle md
+                      WHERE md.id_matricula = m.id_matricula
+                        AND md.resultado = 'APROBADO'
+                  )
+                GROUP BY m.cod_estudiante
+            )
+            UPDATE estudiante e
+            SET ciclo_actual = a.ciclo_correspondiente
+            FROM avances a
+            WHERE e.cod_estudiante = a.cod_estudiante
+              AND e.ciclo_actual < a.ciclo_correspondiente
+        """))
 
 
 def curso(codigo, nombre, semestre, creditos, ht=0, hp=0, tipo="OBLIGATORIO"):
@@ -828,6 +856,7 @@ def seed_data(reset=False):
     migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()
     inicializar_estudiantes_primer_ciclo()
+    reparar_avance_ciclos()
     db = SessionLocal()
     try:
         auth.ensure_security_data(db)

@@ -127,6 +127,7 @@ class PeriodoAcademico(Base):
     fecha_inicio = Column(Date, nullable=False)
     fecha_fin = Column(Date, nullable=False)
     activo = Column(Boolean, nullable=False, default=True)
+    matricula_accesos = Column(String(500), nullable=False, default="")
     __table_args__ = (
         CheckConstraint("fecha_fin > fecha_inicio", name="ck_periodo_fechas"),
         CheckConstraint("anio BETWEEN 2000 AND 2100", name="ck_periodo_anio"),

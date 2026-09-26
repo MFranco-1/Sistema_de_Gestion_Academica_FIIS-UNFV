@@ -10,7 +10,7 @@ El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres d
 | `plan_estudio` | Mallas curriculares históricas y vigentes. | `cod_fac, cod_esc, corr_pe` | Año único por escuela; fechas consistentes. |
 | `curso` | Cursos de cada malla. | `cod_fac, cod_esc, corr_pe, cod_curso` | Código no repetido en la malla; semestre 1–10; créditos positivos; horas no negativas; tipo obligatorio o electivo. |
 | `curso_prerequisito` | Relación de prerrequisitos dentro de una malla. | `cod_fac, cod_esc, corr_pe, cod_curso, cod_curso_prerequisito` | No admite autorreferencia; ambas referencias pertenecen a la misma malla. La API exige que el requisito sea de un semestre anterior. |
-| `periodo_academico` | Períodos lectivos por año. | `cod_periodo` | Año 2000–2100; tipo I, II o VERANO; fechas consistentes. |
+| `periodo_academico` | Períodos lectivos por año. | `cod_periodo` | Año 2000–2100; tipo I, II o VERANO; fechas consistentes; conserva la fase de matrícula por malla y ciclo. |
 | `horario_cabecera` | Horario de una malla en un período. | `id_horario` | Una cabecera por período y malla. |
 | `horario_detalle` | Semestres habilitados en una cabecera. | `id_horario, semestre_corr` | Semestre 1–10. |
 | `horario_curso` | Sesiones de cursos. | `id_horario, semestre_corr, cod_curso, cod_seccion, tipo_sesion, dia_semana, hora_inicio` | Curso de la misma malla; hora final posterior; tipos T/P; días válidos. La API usa bloques de 50 minutos, limita las horas T/P a la malla, aplica el turno del ciclo y rechaza cruces de aula y sección. |
@@ -24,7 +24,7 @@ El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres d
 
 ## Integridad transaccional
 
-Las operaciones de mantenimiento confirman la transacción solamente después de validar todas las reglas. Ante una violación de integridad, la API ejecuta `ROLLBACK` y devuelve un mensaje HTTP 409 o 422 comprensible. La matrícula exige que la oferta pertenezca a la malla, esté abierta en el período, tenga vacantes y que todos los prerrequisitos estén aprobados. Un curso aprobado no puede volver a matricularse. Las contraseñas no se almacenan en texto: se derivan con PBKDF2-SHA256 y sal aleatoria.
+Las operaciones de mantenimiento confirman la transacción solamente después de validar todas las reglas. Ante una violación de integridad, la API ejecuta `ROLLBACK` y devuelve un mensaje HTTP 409 o 422 comprensible. La matrícula exige que la oferta pertenezca a la malla, esté abierta en el período, tenga vacantes, que todos los prerrequisitos estén aprobados y que la fase autorice al estudiante. Un curso aprobado no puede volver a matricularse. El tercio superior se obtiene del orden por promedio ponderado del último período cerrado; la prematrícula no depende de la fase. Las contraseñas no se almacenan en texto: se derivan con PBKDF2-SHA256 y sal aleatoria.
 
 ## Índices de apoyo
 

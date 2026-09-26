@@ -91,6 +91,7 @@ CREATE TABLE periodo_academico (
     fecha_inicio DATE NOT NULL,
     fecha_fin DATE NOT NULL,
     activo BOOLEAN NOT NULL DEFAULT TRUE,
+    matricula_accesos VARCHAR(500) NOT NULL DEFAULT '',
     CONSTRAINT ck_periodo_fechas CHECK (fecha_fin > fecha_inicio),
     CONSTRAINT ck_periodo_anio CHECK (anio BETWEEN 2000 AND 2100),
     CONSTRAINT ck_periodo_tipo CHECK (tipo_periodo IN ('I','II','VERANO'))
