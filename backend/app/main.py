@@ -14,6 +14,12 @@ with engine.begin() as migration_connection:
     migration_connection.exec_driver_sql(
         "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
     )
+    migration_connection.exec_driver_sql(
+        "ALTER TABLE estudiante ADD COLUMN IF NOT EXISTS prematricula VARCHAR(1000) NOT NULL DEFAULT ''"
+    )
+    migration_connection.exec_driver_sql(
+        "ALTER TABLE oferta_curso ADD COLUMN IF NOT EXISTS cod_docente VARCHAR(20)"
+    )
 with SessionLocal() as startup_db:
     auth.ensure_security_data(startup_db)
 
@@ -244,9 +250,24 @@ def update_sesion(datos: schemas.SesionEdicion, db: Session = Depends(get_db), _
     return crud.editar_sesion(db, datos)
 
 
+@app.put("/horarios/cursos", response_model=schemas.Mensaje)
+def upsert_programacion_curso(datos: schemas.ProgramacionCursoUpsert, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
+    return crud.guardar_programacion_curso(db, datos)
+
+
 @app.post("/ofertas/secciones", response_model=schemas.Mensaje, status_code=status.HTTP_201_CREATED)
 def create_oferta_seccion(datos: schemas.OfertaSeccionCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
     return crud.abrir_seccion(db, datos)
+
+
+@app.get("/ofertas/", response_model=List[schemas.OfertaAdministracion])
+def read_ofertas_administracion(cod_periodo: str, corr_pe: int, semestre: int | None = Query(default=None, ge=1, le=10), db: Session = Depends(get_db), _=Depends(auth.require_any_permission("MANTENIMIENTO_ACADEMICO", "PLANA_DOCENTE"))):
+    return crud.get_ofertas_administracion(db, cod_periodo, corr_pe, semestre)
+
+
+@app.put("/ofertas/{id_oferta}/docente", response_model=schemas.Mensaje)
+def update_docente_oferta(id_oferta: int, datos: schemas.DocenteOfertaUpdate, db: Session = Depends(get_db), _=Depends(auth.require_permission("PLANA_DOCENTE"))):
+    return crud.asignar_docente_oferta(db, id_oferta, datos)
 
 
 @app.get("/estudiantes/", response_model=List[schemas.Estudiante])
@@ -307,6 +328,20 @@ def read_matriculas_estudiante(
     ):
         raise HTTPException(status_code=403, detail="Solo puede consultar su propio historial.")
     return crud.get_matriculas_estudiante(db, codigo)
+
+
+@app.get("/estudiantes/{codigo}/prematricula", response_model=schemas.Prematricula)
+def read_prematricula(codigo: str, actual: auth.UsuarioActual = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    if "MATRICULA_PROPIA" not in actual.permisos or actual.cod_estudiante != codigo:
+        raise HTTPException(status_code=403, detail="Solo puede consultar su propia prematrícula.")
+    return crud.get_prematricula(db, codigo)
+
+
+@app.put("/estudiantes/{codigo}/prematricula", response_model=schemas.Mensaje)
+def update_prematricula(codigo: str, datos: schemas.Prematricula, actual: auth.UsuarioActual = Depends(auth.get_current_user), db: Session = Depends(get_db)):
+    if "MATRICULA_PROPIA" not in actual.permisos or actual.cod_estudiante != codigo:
+        raise HTTPException(status_code=403, detail="Solo puede guardar su propia prematrícula.")
+    return crud.guardar_prematricula(db, codigo, datos)
 
 
 @app.post("/matriculas/", response_model=schemas.MatriculaResumen, status_code=status.HTTP_201_CREATED)

@@ -156,6 +156,7 @@ CREATE TABLE estudiante (
     corr_pe INTEGER NOT NULL,
     ciclo_actual INTEGER NOT NULL,
     estado VARCHAR(12) NOT NULL DEFAULT 'ACTIVO',
+    prematricula VARCHAR(1000) NOT NULL DEFAULT '',
     CONSTRAINT fk_estudiante_plan FOREIGN KEY (cod_fac, cod_esc, corr_pe)
         REFERENCES plan_estudio(cod_fac, cod_esc, corr_pe),
     CONSTRAINT ck_estudiante_ciclo CHECK (ciclo_actual BETWEEN 1 AND 10),
@@ -173,6 +174,7 @@ CREATE TABLE oferta_curso (
     cod_seccion VARCHAR(10) NOT NULL DEFAULT 'A',
     vacantes INTEGER NOT NULL DEFAULT 30,
     activo BOOLEAN NOT NULL DEFAULT TRUE,
+    cod_docente VARCHAR(20),
     CONSTRAINT fk_oferta_curso FOREIGN KEY (cod_fac, cod_esc, corr_pe, cod_curso)
         REFERENCES curso(cod_fac, cod_esc, corr_pe, cod_curso),
     CONSTRAINT uq_oferta_periodo_curso_seccion UNIQUE

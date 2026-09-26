@@ -1,0 +1,27 @@
+<header class="page-header"><div class="breadcrumbs">Administración / Horarios</div><h1>Gestión de horarios</h1><p>Programe cada curso como una unidad: la teoría y la práctica permanecen en la misma sección y aula.</p></header>
+<div class="filters"><div><label>MALLA</label><select [(ngModel)]="plan" (change)="cambiarPlan()"><option *ngFor="let p of planes" [ngValue]="p.corr_pe">{{ p.den_plan }}</option></select></div><div><label>CICLO</label><select [(ngModel)]="semestre" (change)="cargar()"><option [ngValue]="0">Seleccione</option><option *ngFor="let s of semestres" [ngValue]="s">Ciclo {{ romano(s) }}</option></select></div><div><label>PERÍODO</label><select [(ngModel)]="periodo" (change)="cargar()"><option *ngFor="let p of periodos" [value]="p.cod_periodo">{{ p.den_periodo }}</option></select></div></div>
+<div class="notice success" *ngIf="mensaje">{{ mensaje }}</div><div class="notice error" *ngIf="error">{{ error }}</div>
+
+<section class="panel" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO') && oferta">
+  <header><small>PROGRAMACIÓN POR CURSO</small><h2>{{ oferta.cod_curso }} · {{ oferta.den_curso }} — Sección {{ oferta.cod_seccion }}</h2></header>
+  <div class="rule">La malla establece automáticamente <strong>{{ oferta.ht }} h teóricas</strong> y <strong>{{ oferta.hp }} h prácticas</strong>. Cada hora académica dura 50 minutos.</div>
+  <form class="schedule-form" (ngSubmit)="guardar()">
+    <div><label>AULA PARA AMBAS SESIONES</label><input name="aula" [(ngModel)]="aula" required></div>
+    <ng-container *ngIf="oferta.ht"><div><label>DÍA DE TEORÍA</label><select name="td" [(ngModel)]="teoriaDia"><option *ngFor="let d of dias">{{ d }}</option></select></div><div><label>INICIO TEORÍA</label><input name="ti" type="time" [(ngModel)]="teoriaInicio"><small>Fin calculado: {{ fin(teoriaInicio, oferta.ht) }}</small></div></ng-container>
+    <ng-container *ngIf="oferta.hp"><div><label>DÍA DE PRÁCTICA</label><select name="pd" [(ngModel)]="practicaDia"><option *ngFor="let d of dias">{{ d }}</option></select></div><div><label>INICIO PRÁCTICA</label><input name="pi" type="time" [(ngModel)]="practicaInicio"><small>Fin calculado: {{ fin(practicaInicio, oferta.hp) }}</small></div></ng-container>
+    <button type="submit">GUARDAR HORARIO COMPLETO</button>
+  </form>
+</section>
+
+<section class="panel">
+  <header><small>CURSOS Y SECCIONES</small><h2>Programación y docentes</h2></header>
+  <div class="empty" *ngIf="semestre && !horarios.length">No existe una cabecera de horario para este ciclo y período.</div>
+  <div class="table-wrap"><table><thead><tr><th>Curso</th><th>Sección</th><th>Horas de malla</th><th>Horario</th><th>Capacidad</th><th>Docente</th><th>Acción</th></tr></thead><tbody>
+    <tr *ngFor="let o of ofertas"><td><strong>{{ o.cod_curso }}</strong><br>{{ o.den_curso }}</td><td>{{ o.cod_seccion }}</td><td>T: {{ o.ht }} / P: {{ o.hp }}</td><td><span *ngFor="let s of sesionesOferta(o)" class="block">{{ s.tipo_sesion }} · {{ s.dia_semana }} {{ s.hora_inicio.slice(0,5) }}–{{ s.hora_fin.slice(0,5) }} · {{ s.aula }}</span><span *ngIf="!sesionesOferta(o).length">Pendiente</span></td><td>{{ o.vacantes }}</td><td><select *ngIf="auth.puede('PLANA_DOCENTE')" [value]="o.cod_docente || ''" (change)="asignarDocente(o, $any($event.target).value)"><option value="">Sin asignar</option><option *ngFor="let d of docentes" [value]="d.cod_docente">{{ d.apellidos_nombres }}</option></select><span *ngIf="!auth.puede('PLANA_DOCENTE')">{{ o.docente_nombre }}</span></td><td><button *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')" type="button" (click)="seleccionar(o)">Gestionar</button></td></tr>
+    <tr *ngIf="!ofertas.length"><td colspan="7" class="empty">Seleccione un ciclo para gestionar sus horarios.</td></tr>
+  </tbody></table></div>
+</section>
+
+<section class="panel" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO') && semestre">
+  <header><small>CAPACIDAD</small><h2>Abrir sección adicional</h2></header><form class="open-form" (ngSubmit)="abrirSeccion()"><div><label>CURSO</label><select name="curso" [(ngModel)]="cursoSeccion" required><option value="">Seleccione</option><option *ngFor="let o of cursosUnicos" [value]="o.cod_curso">{{ o.cod_curso }} · {{ o.den_curso }}</option></select></div><div><label>SECCIÓN</label><input name="seccion" [(ngModel)]="nuevaSeccion" required></div><div><label>CAPACIDAD</label><input name="cap" type="number" min="1" max="100" [(ngModel)]="capacidad"></div><button type="submit">ABRIR SECCIÓN</button></form>
+</section>

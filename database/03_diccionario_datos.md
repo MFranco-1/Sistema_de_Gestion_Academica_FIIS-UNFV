@@ -14,8 +14,8 @@ El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres d
 | `horario_cabecera` | Horario de una malla en un período. | `id_horario` | Una cabecera por período y malla. |
 | `horario_detalle` | Semestres habilitados en una cabecera. | `id_horario, semestre_corr` | Semestre 1–10. |
 | `horario_curso` | Sesiones de cursos. | `id_horario, semestre_corr, cod_curso, cod_seccion, tipo_sesion, dia_semana, hora_inicio` | Curso de la misma malla; hora final posterior; tipos T/P; días válidos. La API usa bloques de 50 minutos, limita las horas T/P a la malla, aplica el turno del ciclo y rechaza cruces de aula y sección. |
-| `estudiante` | Datos del estudiante y su situación curricular. | `cod_estudiante` | Código institucional obligatorio de exactamente 10 dígitos; DNI y correo únicos; malla existente; ciclo 1–10; estado válido. |
-| `oferta_curso` | Cursos abiertos por período, malla y sección. | `id_oferta` | Una sección no se repite en el mismo período; vacantes positivas. |
+| `estudiante` | Datos del estudiante y su situación curricular. | `cod_estudiante` | Código institucional obligatorio de exactamente 10 dígitos; DNI y correo únicos; malla existente; ciclo 1–10; estado válido; prematrícula persistente como guía. |
+| `oferta_curso` | Cursos abiertos por período, malla y sección. | `id_oferta` | Una sección no se repite en el mismo período; vacantes positivas; docente opcional por curso y sección. |
 | `matricula` | Cabecera de matrícula por estudiante y período. | `id_matricula` | Una matrícula por estudiante y período; conserva la malla y ciclo utilizados. |
 | `matricula_detalle` | Cursos y resultados de una matrícula. | `id_matricula, id_oferta` | Nota 0–20; resultado matriculado, aprobado, desaprobado o retirado. |
 | `perfil` | Catálogo de perfiles de acceso. | `id_perfil` | Código y nombre únicos; incluye Administrador, Estudiante, Jefe de departamento, Director de escuela y Administración. |

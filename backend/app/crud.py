@@ -1,4 +1,5 @@
-from datetime import date
+import json
+from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
 from sqlalchemy import and_, case, func, not_, or_
@@ -229,6 +230,53 @@ def get_horarios_disponibles(
             models.HorarioCabecera.cod_periodo.desc(), models.HorarioDetalle.semestre_corr,
         ).all()
     ]
+
+
+def get_ofertas_administracion(
+    db: Session, cod_periodo: str, corr_pe: int, semestre: int | None = None,
+):
+    query = db.query(models.OfertaCurso, models.Curso, models.Docente).join(
+        models.Curso,
+        (models.Curso.cod_fac == models.OfertaCurso.cod_fac)
+        & (models.Curso.cod_esc == models.OfertaCurso.cod_esc)
+        & (models.Curso.corr_pe == models.OfertaCurso.corr_pe)
+        & (models.Curso.cod_curso == models.OfertaCurso.cod_curso),
+    ).outerjoin(
+        models.Docente,
+        (models.Docente.cod_fac == models.OfertaCurso.cod_fac)
+        & (models.Docente.cod_esc == models.OfertaCurso.cod_esc)
+        & (models.Docente.cod_docente == models.OfertaCurso.cod_docente),
+    ).filter(
+        models.OfertaCurso.cod_periodo == cod_periodo,
+        models.OfertaCurso.corr_pe == corr_pe,
+    )
+    if semestre is not None:
+        query = query.filter(models.Curso.semestre == semestre)
+    return [{
+        "id_oferta": oferta.id_oferta, "cod_periodo": oferta.cod_periodo,
+        "corr_pe": oferta.corr_pe, "cod_curso": oferta.cod_curso,
+        "den_curso": curso.den_curso, "semestre": curso.semestre,
+        "ht": curso.ht, "hp": curso.hp, "cod_seccion": oferta.cod_seccion,
+        "vacantes": oferta.vacantes, "cod_docente": oferta.cod_docente,
+        "docente_nombre": docente.apellidos_nombres if docente else "Sin asignar",
+    } for oferta, curso, docente in query.order_by(
+        models.Curso.semestre, models.Curso.cod_curso, models.OfertaCurso.cod_seccion,
+    ).all()]
+
+
+def asignar_docente_oferta(db: Session, id_oferta: int, datos: schemas.DocenteOfertaUpdate):
+    oferta = db.query(models.OfertaCurso).filter_by(id_oferta=id_oferta).first()
+    if not oferta:
+        raise HTTPException(status_code=404, detail="La oferta académica no existe.")
+    if datos.cod_docente:
+        docente = db.query(models.Docente).filter_by(
+            cod_fac=oferta.cod_fac, cod_esc=oferta.cod_esc, cod_docente=datos.cod_docente,
+        ).first()
+        if not docente:
+            raise HTTPException(status_code=404, detail="El docente no pertenece a la escuela.")
+    oferta.cod_docente = datos.cod_docente or None
+    _commit(db, "No se pudo asignar el docente.")
+    return {"mensaje": "Docente asignado correctamente."}
 
 
 def get_semestres(db: Session, corr_pe: int, cod_fac: int = 1, cod_esc: int = 1):
@@ -650,6 +698,57 @@ def editar_sesion(db: Session, datos: schemas.SesionEdicion):
     return {"mensaje": "Sesión de horario actualizada correctamente."}
 
 
+def guardar_programacion_curso(db: Session, datos: schemas.ProgramacionCursoUpsert):
+    cabecera = db.query(models.HorarioCabecera).filter_by(id_horario=datos.id_horario).first()
+    if not cabecera or cabecera.corr_pe != datos.corr_pe:
+        raise HTTPException(status_code=404, detail="El horario no pertenece a la malla seleccionada.")
+    curso = db.query(models.Curso).filter_by(
+        cod_fac=1, cod_esc=1, corr_pe=datos.corr_pe, cod_curso=datos.cod_curso,
+    ).first()
+    if not curso or curso.semestre != datos.semestre_corr:
+        raise HTTPException(status_code=404, detail="El curso no pertenece al ciclo seleccionado.")
+    if curso.ht and not datos.teoria:
+        raise HTTPException(status_code=422, detail=f"La malla exige {curso.ht} hora(s) teóricas.")
+    if curso.hp and not datos.practica:
+        raise HTTPException(status_code=422, detail=f"La malla exige {curso.hp} hora(s) prácticas.")
+    if not db.query(models.OfertaCurso).filter_by(
+        cod_fac=cabecera.cod_fac, cod_esc=cabecera.cod_esc, corr_pe=datos.corr_pe,
+        cod_curso=datos.cod_curso, cod_seccion=datos.cod_seccion,
+        cod_periodo=cabecera.cod_periodo,
+    ).first():
+        raise HTTPException(status_code=404, detail="Primero debe abrir la sección para este curso.")
+    existentes = db.query(models.HorarioCurso).filter_by(
+        id_horario=datos.id_horario, semestre_corr=datos.semestre_corr,
+        cod_curso=datos.cod_curso, cod_seccion=datos.cod_seccion,
+    ).all()
+    try:
+        for item in existentes:
+            db.delete(item)
+        db.flush()
+        for tipo, horas, bloque in (("T", curso.ht, datos.teoria), ("P", curso.hp, datos.practica)):
+            if not horas:
+                continue
+            fin = (datetime.combine(date.today(), bloque.hora_inicio) + timedelta(minutes=horas * 50)).time()
+            sesion = schemas.SesionCreate(
+                id_horario=datos.id_horario, semestre_corr=datos.semestre_corr,
+                cod_curso=datos.cod_curso, cod_seccion=datos.cod_seccion,
+                tipo_sesion=tipo, corr_pe=datos.corr_pe,
+                dia_semana=bloque.dia_semana, hora_inicio=bloque.hora_inicio,
+                hora_fin=fin, aula=datos.aula,
+            )
+            _validar_sesion(db, sesion)
+            db.add(models.HorarioCurso(**sesion.model_dump()))
+            db.flush()
+        db.commit()
+    except HTTPException:
+        db.rollback()
+        raise
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="La programación se cruza con otra clase o aula.")
+    return {"mensaje": "Horario teórico y práctico guardado para la misma sección y aula."}
+
+
 def get_estudiantes(db: Session, buscar: str | None = None):
     query = db.query(models.Estudiante, models.PlanEstudio).join(
         models.PlanEstudio,
@@ -883,6 +982,8 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
             f"{s.dia_semana.title()} {s.hora_inicio.strftime('%H:%M')}-{s.hora_fin.strftime('%H:%M')} ({s.tipo_sesion})"
             for s in sesiones
         ) or "Horario pendiente"
+        minutos_teoria = sum(_minutos(s.hora_fin) - _minutos(s.hora_inicio) for s in sesiones if s.tipo_sesion == "T")
+        minutos_practica = sum(_minutos(s.hora_fin) - _minutos(s.hora_inicio) for s in sesiones if s.tipo_sesion == "P")
         es_pendiente = curso.cod_curso in desaprobados
         if periodo.tipo_periodo == "VERANO":
             relevante_periodo = es_pendiente
@@ -906,6 +1007,10 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
             motivo = "Falta aprobar: " + ", ".join(sorted(faltantes))
         elif matriculados >= oferta.vacantes:
             motivo = "No quedan vacantes."
+        elif minutos_teoria != curso.ht * 50 or minutos_practica != curso.hp * 50:
+            motivo = f"Horario incompleto: la malla exige {curso.ht} h teóricas y {curso.hp} h prácticas."
+        elif len({s.aula for s in sesiones}) > 1:
+            motivo = "La teoría y la práctica deben dictarse en la misma aula."
         resultado.append({
             "id_oferta": oferta.id_oferta, "cod_periodo": oferta.cod_periodo,
             "corr_pe": oferta.corr_pe, "cod_curso": oferta.cod_curso,
@@ -916,6 +1021,10 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
             "vacantes_disponibles": max(oferta.vacantes - matriculados, 0),
             "disponible": not motivo, "motivo": motivo,
             "horario_resumen": horario_resumen,
+            "horarios": [{
+                "dia_semana": s.dia_semana, "hora_inicio": s.hora_inicio,
+                "hora_fin": s.hora_fin, "tipo_sesion": s.tipo_sesion, "aula": s.aula,
+            } for s in sesiones],
         })
     return resultado
 
@@ -1047,6 +1156,40 @@ def get_matriculas_estudiante(db: Session, codigo: str):
             } for detalle, oferta, curso in detalles],
         })
     return resultado
+
+
+def get_prematricula(db: Session, codigo: str):
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    if not estudiante.prematricula:
+        return {"cod_periodo": "", "ofertas": []}
+    try:
+        datos = json.loads(estudiante.prematricula)
+        return {"cod_periodo": str(datos.get("cod_periodo", "")), "ofertas": [int(x) for x in datos.get("ofertas", [])]}
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return {"cod_periodo": "", "ofertas": []}
+
+
+def guardar_prematricula(db: Session, codigo: str, datos: schemas.Prematricula):
+    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
+    if not estudiante:
+        raise HTTPException(status_code=404, detail="El estudiante no existe.")
+    ofertas = db.query(models.OfertaCurso).filter(models.OfertaCurso.id_oferta.in_(datos.ofertas)).all() if datos.ofertas else []
+    if len(ofertas) != len(set(datos.ofertas)) or any(
+        oferta.cod_periodo != datos.cod_periodo
+        or oferta.corr_pe != estudiante.corr_pe
+        or oferta.cod_fac != estudiante.cod_fac
+        or oferta.cod_esc != estudiante.cod_esc
+        for oferta in ofertas
+    ):
+        raise HTTPException(status_code=422, detail="La prematrícula contiene una oferta que no pertenece al estudiante o período.")
+    codigos = [oferta.cod_curso for oferta in ofertas]
+    if len(codigos) != len(set(codigos)):
+        raise HTTPException(status_code=409, detail="La prematrícula solo admite una sección por curso.")
+    estudiante.prematricula = json.dumps({"cod_periodo": datos.cod_periodo, "ofertas": datos.ofertas})
+    _commit(db, "No se pudo guardar la prematrícula.")
+    return {"mensaje": "Prematrícula guardada como guía. La matrícula oficial no fue modificada."}
 
 
 def registrar_resultado(

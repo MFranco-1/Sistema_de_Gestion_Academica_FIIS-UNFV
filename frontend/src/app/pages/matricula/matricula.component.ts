@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ApiService, Estudiante, MatriculaResumen, OfertaCurso, PeriodoAcademico } from '../../services/api.service';
+import { ApiService, BloqueHorario, Estudiante, MatriculaResumen, OfertaCurso, PeriodoAcademico } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 @Component({ selector: 'app-matricula', templateUrl: './matricula.component.html', styleUrls: ['./matricula.component.css'] })
@@ -15,6 +15,7 @@ export class MatriculaComponent implements OnInit {
   error = '';
   cargando = true;
   fotoPerfil = '';
+  readonly diasHorario = ['LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO'];
 
   constructor(private api: ApiService, public auth: AuthService) {}
 
@@ -46,7 +47,15 @@ export class MatriculaComponent implements OnInit {
     if (!this.estudiante || !this.periodoSeleccionado) return;
     this.seleccionadas.clear();
     this.api.getOfertasEstudiante(this.estudiante.cod_estudiante, this.periodoSeleccionado).subscribe({
-      next: data => this.ofertas = data,
+      next: data => {
+        this.ofertas = data;
+        this.api.getPrematricula(this.estudiante!.cod_estudiante).subscribe(guardada => {
+          if (guardada.cod_periodo === this.periodoSeleccionado) {
+            const validas = new Set(data.map(item => item.id_oferta));
+            this.seleccionadas = new Set(guardada.ofertas.filter(id => validas.has(id)));
+          }
+        });
+      },
       error: error => this.mostrarError(error)
     });
   }
@@ -60,7 +69,36 @@ export class MatriculaComponent implements OnInit {
   }
 
   alternarOferta(id: number, seleccionada: boolean): void {
-    seleccionada ? this.seleccionadas.add(id) : this.seleccionadas.delete(id);
+    if (seleccionada) {
+      const elegida = this.ofertas.find(item => item.id_oferta === id);
+      if (elegida) this.ofertas.filter(item => item.cod_curso === elegida.cod_curso).forEach(item => this.seleccionadas.delete(item.id_oferta));
+      this.seleccionadas.add(id);
+    } else this.seleccionadas.delete(id);
+  }
+
+  guardarPrematricula(): void {
+    if (!this.estudiante) return;
+    this.mensaje = ''; this.error = '';
+    this.api.guardarPrematricula(this.estudiante.cod_estudiante, { cod_periodo: this.periodoSeleccionado, ofertas: [...this.seleccionadas] }).subscribe({
+      next: data => this.mensaje = data.mensaje,
+      error: error => this.mostrarError(error)
+    });
+  }
+
+  bloquesDia(dia: string): { oferta: OfertaCurso; bloque: BloqueHorario }[] {
+    const resultado: { oferta: OfertaCurso; bloque: BloqueHorario }[] = [];
+    this.ofertas.filter(o => this.seleccionadas.has(o.id_oferta)).forEach(oferta => oferta.horarios.filter(b => b.dia_semana === dia).forEach(bloque => resultado.push({ oferta, bloque })));
+    return resultado.sort((a,b) => a.bloque.hora_inicio.localeCompare(b.bloque.hora_inicio));
+  }
+
+  get crucePrematricula(): string {
+    const bloques = this.diasHorario.flatMap(dia => this.bloquesDia(dia));
+    const minutos = (v: string) => { const [h,m] = v.slice(0,5).split(':').map(Number); return h*60+m; };
+    for (let i=0;i<bloques.length;i++) for (let j=i+1;j<bloques.length;j++) {
+      const a=bloques[i], b=bloques[j];
+      if (a.bloque.dia_semana === b.bloque.dia_semana && a.oferta.cod_curso !== b.oferta.cod_curso && minutos(a.bloque.hora_inicio)<minutos(b.bloque.hora_fin) && minutos(a.bloque.hora_fin)>minutos(b.bloque.hora_inicio)) return `${a.oferta.cod_curso} se cruza con ${b.oferta.cod_curso} el ${a.bloque.dia_semana.toLowerCase()}.`;
+    }
+    return '';
   }
 
   registrarMatricula(): void {

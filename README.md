@@ -22,6 +22,9 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Validación de duplicados, semestres, créditos, horas, precedencia académica y cruces de aula/sección.
 - Perfil estudiantil con foto local, ciclo, carrera, código, créditos y horarios disponibles; la malla permite navegar con el mouse hacia sus prerrequisitos.
 - Programación A/B/C por ciclo y turno, horas académicas de 50 minutos, apertura de secciones y capacidad por curso/sección.
+- Gestión de horarios en pantalla independiente: teoría y práctica se programan juntas según las horas de la malla, dentro de una misma sección y aula.
+- Asignación de docentes por curso, período y sección para los perfiles autorizados.
+- Prematrícula estudiantil persistente con vista semanal institucional; funciona como guía y no altera la matrícula oficial.
 - Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.
 - Documentación interactiva de la API con Swagger.
 
@@ -142,7 +145,12 @@ No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render 
 - `DELETE /prerrequisitos/{corr_pe}/{cod_curso}/{cod_requisito}`
 - `POST /sesiones/`
 - `PUT /sesiones/`
+- `PUT /horarios/cursos`
 - `POST /ofertas/secciones`
+- `GET /ofertas/?cod_periodo=2026-II&corr_pe=2&semestre=2`
+- `PUT /ofertas/{id_oferta}/docente`
+- `GET /estudiantes/{codigo}/prematricula`
+- `PUT /estudiantes/{codigo}/prematricula`
 - `POST /estudiantes/`
 - `PUT /estudiantes/{codigo}`
 - `DELETE /estudiantes/{codigo}`

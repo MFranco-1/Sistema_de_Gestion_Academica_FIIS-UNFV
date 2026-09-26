@@ -185,7 +185,25 @@ export interface OfertaCurso {
   disponible: boolean;
   motivo: string;
   horario_resumen: string;
+  horarios: BloqueHorario[];
 }
+
+export interface BloqueHorario { dia_semana: string; hora_inicio: string; hora_fin: string; tipo_sesion: string; aula: string; }
+
+export interface OfertaAdministracion {
+  id_oferta: number; cod_periodo: string; corr_pe: number; cod_curso: string;
+  den_curso: string; semestre: number; ht: number; hp: number; cod_seccion: string;
+  vacantes: number; cod_docente?: string; docente_nombre: string;
+}
+
+export interface ProgramacionCursoPayload {
+  id_horario: number; semestre_corr: number; corr_pe: number; cod_curso: string;
+  cod_seccion: string; aula: string;
+  teoria?: { dia_semana: string; hora_inicio: string };
+  practica?: { dia_semana: string; hora_inicio: string };
+}
+
+export interface Prematricula { cod_periodo: string; ofertas: number[]; }
 
 export interface OfertaSeccionPayload {
   cod_periodo: string;
@@ -390,6 +408,20 @@ export class ApiService {
     return this.http.post<Mensaje>(`${this.apiUrl}/ofertas/secciones`, datos);
   }
 
+  getOfertasAdministracion(periodo: string, corrPe: number, semestre?: number): Observable<OfertaAdministracion[]> {
+    let params = new HttpParams().set('cod_periodo', periodo).set('corr_pe', corrPe);
+    if (semestre) params = params.set('semestre', semestre);
+    return this.http.get<OfertaAdministracion[]>(`${this.apiUrl}/ofertas/`, { params });
+  }
+
+  asignarDocente(idOferta: number, codDocente?: string): Observable<Mensaje> {
+    return this.http.put<Mensaje>(`${this.apiUrl}/ofertas/${idOferta}/docente`, { cod_docente: codDocente || null });
+  }
+
+  guardarProgramacionCurso(datos: ProgramacionCursoPayload): Observable<Mensaje> {
+    return this.http.put<Mensaje>(`${this.apiUrl}/horarios/cursos`, datos);
+  }
+
   registrarResultadosLote(idMatricula: number, detalles: MatriculaDetalle[]): Observable<Mensaje> {
     return this.http.put<Mensaje>(
       `${this.apiUrl}/matriculas/${idMatricula}/resultados`,
@@ -403,6 +435,14 @@ export class ApiService {
 
   getMiEstudiante(): Observable<Estudiante> {
     return this.http.get<Estudiante>(`${this.apiUrl}/estudiantes/me`);
+  }
+
+  getPrematricula(codigo: string): Observable<Prematricula> {
+    return this.http.get<Prematricula>(`${this.apiUrl}/estudiantes/${encodeURIComponent(codigo)}/prematricula`);
+  }
+
+  guardarPrematricula(codigo: string, datos: Prematricula): Observable<Mensaje> {
+    return this.http.put<Mensaje>(`${this.apiUrl}/estudiantes/${encodeURIComponent(codigo)}/prematricula`, datos);
   }
 
   getUsuarios(): Observable<UsuarioAdministracion[]> {

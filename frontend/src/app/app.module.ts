@@ -19,6 +19,7 @@ import { PerfilesComponent } from './pages/perfiles/perfiles.component';
 import { GestionMatriculasComponent } from './pages/gestion-matriculas/gestion-matriculas.component';
 import { HistorialComponent } from './pages/historial/historial.component';
 import { MiMallaComponent } from './pages/mi-malla/mi-malla.component';
+import { HorariosComponent } from './pages/horarios/horarios.component';
 
 @NgModule({
   declarations: [
@@ -35,7 +36,8 @@ import { MiMallaComponent } from './pages/mi-malla/mi-malla.component';
     PerfilesComponent,
     GestionMatriculasComponent,
     HistorialComponent,
-    MiMallaComponent
+    MiMallaComponent,
+    HorariosComponent
   ],
   imports: [
     BrowserModule,

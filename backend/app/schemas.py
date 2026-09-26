@@ -92,6 +92,14 @@ class ProgramacionHorario(BaseModel):
     aula: str
 
 
+class BloqueHorario(BaseModel):
+    dia_semana: str
+    hora_inicio: time
+    hora_fin: time
+    tipo_sesion: str
+    aula: str
+
+
 class HorarioDisponible(BaseModel):
     id_horario: int
     cod_periodo: str
@@ -300,6 +308,7 @@ class OfertaCurso(BaseModel):
     disponible: bool
     motivo: str = ""
     horario_resumen: str = "Horario pendiente"
+    horarios: list[BloqueHorario] = []
 
 
 class OfertaSeccionCreate(BaseModel):
@@ -315,6 +324,59 @@ class OfertaSeccionCreate(BaseModel):
     @classmethod
     def normalizar_oferta(cls, valor: str) -> str:
         return valor.strip().upper()
+
+
+class OfertaAdministracion(BaseModel):
+    id_oferta: int
+    cod_periodo: str
+    corr_pe: int
+    cod_curso: str
+    den_curso: str
+    semestre: int
+    ht: int
+    hp: int
+    cod_seccion: str
+    vacantes: int
+    cod_docente: Optional[str] = None
+    docente_nombre: str = "Sin asignar"
+
+
+class DocenteOfertaUpdate(BaseModel):
+    cod_docente: Optional[str] = None
+
+
+class BloqueProgramacion(BaseModel):
+    dia_semana: str
+    hora_inicio: time
+
+    @field_validator("dia_semana")
+    @classmethod
+    def validar_dia_bloque(cls, valor: str) -> str:
+        valor = valor.strip().upper()
+        if valor not in {"LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO"}:
+            raise ValueError("El día de la semana no es válido.")
+        return valor
+
+
+class ProgramacionCursoUpsert(BaseModel):
+    id_horario: int
+    semestre_corr: int = Field(ge=1, le=10)
+    corr_pe: int
+    cod_curso: str
+    cod_seccion: str
+    aula: str
+    teoria: Optional[BloqueProgramacion] = None
+    practica: Optional[BloqueProgramacion] = None
+
+    @field_validator("cod_curso", "cod_seccion", "aula")
+    @classmethod
+    def normalizar_programacion(cls, valor: str) -> str:
+        return valor.strip().upper()
+
+
+class Prematricula(BaseModel):
+    cod_periodo: str
+    ofertas: list[int] = []
 
 
 class MatriculaCreate(BaseModel):

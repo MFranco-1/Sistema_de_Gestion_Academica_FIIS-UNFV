@@ -480,8 +480,22 @@ def asegurar_estudiantes_secciones(db):
         ("2021001044", "71001044", "Delgado Poma, José", 8, "A"),
         ("2020001055", "71001055", "Espinoza Torres, Carla", 10, "B"),
         ("2024001066", "71001066", "Flores Medina, Miguel", 2, "C"),
+        ("2024001077", "71001077", "Gamarra León, Sofía", 2, "B"),
+        ("2024001088", "71001088", "Herrera Campos, Diego", 2, "C"),
+        ("2023001099", "71001099", "Ibarra Salas, Lucía", 4, "A"),
+        ("2023001100", "71001100", "Jiménez Ríos, Carlos", 4, "C"),
+        ("2022001111", "71001111", "López Vargas, Daniela", 6, "A"),
+        ("2022001122", "71001122", "Mendoza Paredes, Bruno", 6, "B"),
+        ("2021001133", "71001133", "Núñez Castro, Paula", 8, "B"),
+        ("2021001144", "71001144", "Ochoa Ruiz, Fernando", 8, "C"),
+        ("2020001155", "71001155", "Peña Soto, Valentina", 10, "A"),
+        ("2020001166", "71001166", "Quispe Díaz, Andrés", 10, "C"),
+        ("2024001177", "71001177", "Ramírez Luna, Camila", 2, "A"),
+        ("2023001188", "71001188", "Salazar Meza, Joaquín", 4, "B"),
     )
     periodo = db.query(models.PeriodoAcademico).filter_by(activo=True).first()
+    # Estas cuentas quedan libres para demostrar la prematrícula antes del registro oficial.
+    estudiantes_prematricula = {"2024001077", "2024001088", "2023001099"}
     for codigo, dni, nombre, ciclo, seccion in alumnos:
         estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
         if not estudiante:
@@ -493,6 +507,8 @@ def asegurar_estudiantes_secciones(db):
             db.add(estudiante)
             db.flush()
         auth.ensure_student_user(db, estudiante)
+        if codigo in estudiantes_prematricula:
+            continue
         if not periodo or db.query(models.Matricula).filter_by(
             cod_estudiante=codigo, cod_periodo=periodo.cod_periodo,
         ).first():
@@ -618,6 +634,12 @@ def seed_data(reset=False):
     with engine.begin() as connection:
         connection.exec_driver_sql(
             "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE estudiante ADD COLUMN IF NOT EXISTS prematricula VARCHAR(1000) NOT NULL DEFAULT ''"
+        )
+        connection.exec_driver_sql(
+            "ALTER TABLE oferta_curso ADD COLUMN IF NOT EXISTS cod_docente VARCHAR(20)"
         )
     migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()

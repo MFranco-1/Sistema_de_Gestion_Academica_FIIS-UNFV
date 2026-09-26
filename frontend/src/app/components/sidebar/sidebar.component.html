@@ -9,6 +9,7 @@
       <a *ngIf="auth.puede('GESTION_CURRICULAR')" class="menu-item" routerLink="/catalog" fragment="programacion"><span class="material-icons-outlined">calendar_month</span>Programación académica</a>
       <div class="menu-label second">ADMINISTRACIÓN</div>
       <a *ngIf="auth.puede('PLANA_DOCENTE')" class="menu-item" routerLink="/docentes" routerLinkActive="active"><span class="material-icons-outlined">groups</span>Plana docente</a>
+      <a *ngIf="auth.puedeAlguno('MANTENIMIENTO_ACADEMICO','PLANA_DOCENTE')" class="menu-item" routerLink="/admin/horarios" routerLinkActive="active"><span class="material-icons-outlined">schedule</span>Gestión de horarios</a>
       <a *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')" class="menu-item" routerLink="/mantenimiento" routerLinkActive="active"><span class="material-icons-outlined">settings</span>Mantenimiento académico</a>
       <a *ngIf="auth.puede('GESTION_ESTUDIANTES')" class="menu-item" routerLink="/mantenimiento" fragment="estudiantes"><span class="material-icons-outlined">school</span>Estudiantes</a>
       <a *ngIf="auth.puede('GESTION_MATRICULAS')" class="menu-item" routerLink="/admin/matriculas" routerLinkActive="active"><span class="material-icons-outlined">assignment</span>Matrículas e historial</a>

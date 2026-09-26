@@ -118,3 +118,15 @@ JOIN usuario_perfil AS up ON up.id_usuario = u.id_usuario
 JOIN perfil AS p ON p.id_perfil = up.id_perfil
 GROUP BY u.id_usuario
 ORDER BY u.nombre_mostrar;
+
+-- 12. Cursos, secciones, capacidad y docente asignado para gestionar horarios.
+SELECT o.id_oferta, o.cod_periodo, c.cod_curso, c.den_curso,
+       c.ht, c.hp, o.cod_seccion, o.vacantes,
+       COALESCE(d.apellidos_nombres, 'Sin asignar') AS docente
+FROM oferta_curso o
+JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+            AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+LEFT JOIN docente d ON d.cod_fac = o.cod_fac AND d.cod_esc = o.cod_esc
+                    AND d.cod_docente = o.cod_docente
+WHERE o.cod_periodo = '2026-II' AND o.corr_pe = 2 AND c.semestre = 2
+ORDER BY c.cod_curso, o.cod_seccion;

@@ -211,6 +211,7 @@ class Estudiante(Base):
     corr_pe = Column(Integer, nullable=False)
     ciclo_actual = Column(Integer, nullable=False)
     estado = Column(String(12), nullable=False, default="ACTIVO")
+    prematricula = Column(String(1000), nullable=False, default="")
     __table_args__ = (
         ForeignKeyConstraint(
             ["cod_fac", "cod_esc", "corr_pe"],
@@ -234,6 +235,7 @@ class OfertaCurso(Base):
     cod_seccion = Column(String(10), nullable=False, default="A")
     vacantes = Column(Integer, nullable=False, default=30)
     activo = Column(Boolean, nullable=False, default=True)
+    cod_docente = Column(String(20), nullable=True)
     __table_args__ = (
         ForeignKeyConstraint(
             ["cod_fac", "cod_esc", "corr_pe", "cod_curso"],
