@@ -89,18 +89,13 @@ export class MatriculaComponent implements OnInit {
     const matriculaActiva = activo
       ? this.matriculas.find(matricula => matricula.cod_periodo === activo.cod_periodo)
       : undefined;
-    const regularesCronologicos = this.periodosBase
-      .filter(periodo => periodo.tipo_periodo !== 'VERANO')
-      .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
     const regulares = this.periodosBase
       .filter(periodo => periodo.tipo_periodo === tipoCorrespondiente)
       .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
-    const siguienteAlCierre = activo && matriculaActiva?.estado === 'CERRADA'
-      ? regularesCronologicos.find(periodo => periodo.fecha_inicio > activo.fecha_inicio)
-      : undefined;
-    const correspondiente = siguienteAlCierre
-      || (matriculaActiva?.estado === 'REGISTRADA' ? activo : undefined)
-      || regulares.find(periodo => periodo.activo)
+    const periodoActivoCompatible = matriculaActiva?.estado === 'CERRADA'
+      ? undefined
+      : regulares.find(periodo => periodo.activo);
+    const correspondiente = periodoActivoCompatible
       || (activo ? regulares.find(periodo => periodo.fecha_inicio > activo.fecha_inicio) : undefined)
       || regulares.find(periodo => periodo.fecha_fin >= new Date().toISOString().slice(0, 10))
       || regulares[regulares.length - 1];
