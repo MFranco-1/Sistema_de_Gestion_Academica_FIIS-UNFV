@@ -1,4 +1,4 @@
-<header class="page-header"><div class="breadcrumbs">Administración / Horarios</div><h1>Gestión de horarios</h1><p>Programe cada curso como una unidad: la teoría y la práctica permanecen en la misma sección y aula.</p></header>
+<header class="page-header"><div class="breadcrumbs">Administración / Horarios</div><h1>Gestión de horarios</h1></header>
 <div class="filters"><div><label>MALLA</label><select [(ngModel)]="plan" (change)="cambiarPlan()"><option *ngFor="let p of planes" [ngValue]="p.corr_pe">{{ p.den_plan }}</option></select></div><div><label>CICLO</label><select [(ngModel)]="semestre" (change)="cargar()"><option [ngValue]="0">Seleccione</option><option *ngFor="let s of semestres" [ngValue]="s">Ciclo {{ romano(s) }}</option></select></div><div><label>PERÍODO</label><select [(ngModel)]="periodo" (change)="cargar()"><option *ngFor="let p of periodos" [value]="p.cod_periodo">{{ p.den_periodo }}</option></select></div></div>
 <div class="notice success" *ngIf="mensaje">{{ mensaje }}</div><div class="notice error" *ngIf="error">{{ error }}</div>
 
