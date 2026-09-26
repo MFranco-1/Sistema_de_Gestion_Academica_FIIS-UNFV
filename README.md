@@ -20,6 +20,9 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Perfiles personalizados con permisos configurables, asignación dinámica a usuarios y gestión administrativa de matrículas e historial.
 - Códigos estudiantiles de exactamente 10 dígitos; las cuentas estudiantiles se inicializan obligatoriamente con el DNI como contraseña.
 - Validación de duplicados, semestres, créditos, horas, precedencia académica y cruces de aula/sección.
+- Perfil estudiantil con foto local, ciclo, carrera, código, créditos y horarios disponibles; la malla permite navegar con el mouse hacia sus prerrequisitos.
+- Programación A/B/C por ciclo y turno, horas académicas de 50 minutos, apertura de secciones y capacidad por curso/sección.
+- Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.
 - Documentación interactiva de la API con Swagger.
 
 ## Modelo de datos
@@ -99,7 +102,7 @@ Interfaz: `http://localhost:4200`.
 ## Despliegue
 
 1. Sube los cambios a GitHub. `frontend/node_modules`, `frontend/dist`, `frontend/.angular` y los archivos `.log` están excluidos por `.gitignore`; no se despliegan.
-2. En Render, crea un **Web Service** Python desde este repositorio con Root Directory `backend`, Build Command `pip install -r requirements.txt` y Start Command `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+2. En Render, crea un **Web Service** Python desde este repositorio con Root Directory `backend`, Build Command `pip install -r requirements.txt` y Start Command `python seed_db.py && uvicorn app.main:app --host 0.0.0.0 --port $PORT`. El seed es incremental e idempotente; no elimina datos existentes.
 3. En **Environment** del servicio Render configura `DATABASE_URL` con la **Internal Database URL** de tu PostgreSQL de Render (en la misma región), `AUTH_SECRET` con una clave larga y aleatoria, `ADMIN_PASSWORD` con una clave privada y `CORS_ORIGINS` con la URL exacta que te dé Vercel. La aplicación acepta URLs `postgresql://` y `postgresql+pg8000://`.
 4. Antes de desplegar Vercel, cambia `frontend/src/environments/environment.production.ts` para que `apiUrl` sea la nueva URL pública de Render, sin `/` final. Este valor queda incorporado en el build de Angular; no basta con crear una variable en Vercel.
 5. En Vercel, importa el mismo repositorio como proyecto **Angular** con Root Directory `frontend`, Build Command `npm run build` y Output Directory `dist/frontend`. El archivo `frontend/vercel.json` permite abrir directamente rutas como `/login`.
@@ -139,6 +142,7 @@ No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render 
 - `DELETE /prerrequisitos/{corr_pe}/{cod_curso}/{cod_requisito}`
 - `POST /sesiones/`
 - `PUT /sesiones/`
+- `POST /ofertas/secciones`
 - `POST /estudiantes/`
 - `PUT /estudiantes/{codigo}`
 - `DELETE /estudiantes/{codigo}`

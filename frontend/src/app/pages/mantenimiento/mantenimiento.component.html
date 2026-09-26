@@ -56,8 +56,22 @@
     <div class="field"><label>HORA FIN</label><input name="fin" type="time" [(ngModel)]="sesionForm.hora_fin" required></div>
     <div class="field"><label>AULA</label><input name="aula" [(ngModel)]="sesionForm.aula" maxlength="30" required></div>
     <div class="form-actions"><button class="primary" type="submit" [disabled]="!horarios.length">{{ sesionOriginal ? 'GUARDAR CAMBIOS' : 'REGISTRAR SESIÓN' }}</button><button class="secondary" type="button" (click)="cancelarSesion()">CANCELAR</button></div>
+    <div class="section-note wide" *ngIf="cursoSesion">
+      La malla exige {{ cursoSesion.ht }} h teóricas y {{ cursoSesion.hp }} h prácticas. Para {{ sesionForm.tipo_sesion }}:
+      {{ horasAsignadasSesion }} de {{ horasMallaSesion }} horas académicas asignadas (50 minutos cada una). {{ turnoSesion }}.
+    </div>
   </form>
   <div class="table-wrap"><table><thead><tr><th>Día</th><th>Horario</th><th>Curso</th><th>Sección</th><th>Tipo</th><th>Aula</th><th>Acción</th></tr></thead><tbody><tr *ngFor="let sesion of sesiones"><td>{{ sesion.dia_semana }}</td><td>{{ sesion.hora_inicio.slice(0,5) }} – {{ sesion.hora_fin.slice(0,5) }}</td><td>{{ sesion.cod_curso }} · {{ sesion.den_curso }}</td><td>{{ sesion.cod_seccion }}</td><td>{{ sesion.tipo_sesion }}</td><td>{{ sesion.aula }}</td><td><button type="button" (click)="editarSesion(sesion)">Editar</button></td></tr><tr *ngIf="!sesiones.length"><td colspan="7" class="empty">No hay sesiones registradas para la selección actual.</td></tr></tbody></table></div>
+</section>
+
+<section class="maintenance-section" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')">
+  <div class="section-heading"><div><span>SECCIONES</span><h2>Abrir una sección adicional</h2></div></div>
+  <form class="form-grid" (ngSubmit)="abrirSeccion()">
+    <div class="field wide"><label>CURSO</label><select name="cursoOferta" [(ngModel)]="cursoNuevaSeccion" required><option value="">Seleccione</option><option *ngFor="let curso of cursos" [value]="curso.cod_curso">{{ curso.cod_curso }} · {{ curso.den_curso }}</option></select></div>
+    <div class="field"><label>NUEVA SECCIÓN</label><input name="seccionOferta" [(ngModel)]="nuevaSeccion" maxlength="10" required></div>
+    <div class="field"><label>CAPACIDAD DE ALUMNOS</label><input name="capacidadOferta" type="number" [(ngModel)]="capacidadSeccion" min="1" max="100" required></div>
+    <div class="form-actions"><button class="primary" type="submit" [disabled]="!selectedPeriodo || !cursoNuevaSeccion">ABRIR SECCIÓN</button></div>
+  </form>
 </section>
 
 <section class="maintenance-section" id="estudiantes" *ngIf="auth.puede('GESTION_ESTUDIANTES')">

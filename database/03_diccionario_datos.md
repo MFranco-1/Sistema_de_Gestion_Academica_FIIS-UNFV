@@ -13,12 +13,12 @@ El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres d
 | `periodo_academico` | Períodos lectivos por año. | `cod_periodo` | Año 2000–2100; tipo I, II o VERANO; fechas consistentes. |
 | `horario_cabecera` | Horario de una malla en un período. | `id_horario` | Una cabecera por período y malla. |
 | `horario_detalle` | Semestres habilitados en una cabecera. | `id_horario, semestre_corr` | Semestre 1–10. |
-| `horario_curso` | Sesiones de cursos. | `id_horario, semestre_corr, cod_curso, cod_seccion, tipo_sesion, dia_semana, hora_inicio` | Curso de la misma malla; hora final posterior; tipos T/P; días válidos. La API rechaza cruces de aula y sección. |
+| `horario_curso` | Sesiones de cursos. | `id_horario, semestre_corr, cod_curso, cod_seccion, tipo_sesion, dia_semana, hora_inicio` | Curso de la misma malla; hora final posterior; tipos T/P; días válidos. La API usa bloques de 50 minutos, limita las horas T/P a la malla, aplica el turno del ciclo y rechaza cruces de aula y sección. |
 | `estudiante` | Datos del estudiante y su situación curricular. | `cod_estudiante` | Código institucional obligatorio de exactamente 10 dígitos; DNI y correo únicos; malla existente; ciclo 1–10; estado válido. |
 | `oferta_curso` | Cursos abiertos por período, malla y sección. | `id_oferta` | Una sección no se repite en el mismo período; vacantes positivas. |
 | `matricula` | Cabecera de matrícula por estudiante y período. | `id_matricula` | Una matrícula por estudiante y período; conserva la malla y ciclo utilizados. |
 | `matricula_detalle` | Cursos y resultados de una matrícula. | `id_matricula, id_oferta` | Nota 0–20; resultado matriculado, aprobado, desaprobado o retirado. |
-| `perfil` | Catálogo de perfiles de acceso. | `id_perfil` | Código y nombre únicos; incluye Administrador y Estudiante. |
+| `perfil` | Catálogo de perfiles de acceso. | `id_perfil` | Código y nombre únicos; incluye Administrador, Estudiante, Jefe de departamento, Director de escuela y Administración. |
 | `usuario` | Credenciales y vínculo opcional con un estudiante. | `id_usuario` | Nombre de usuario único, contraseña con hash; las cuentas vinculadas a estudiantes usan obligatoriamente el DNI como contraseña inicial. |
 | `usuario_perfil` | Perfiles asignados a cada usuario. | `id_usuario, id_perfil` | Permite que una cuenta tenga uno o varios perfiles. |
 

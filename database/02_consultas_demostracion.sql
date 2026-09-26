@@ -75,6 +75,16 @@ SELECT
           WHERE hc.cod_fac = 1 AND hc.cod_esc = 1 AND hc.corr_pe = 2
             AND hc.cod_curso = 'P19-41') AS tiene_horarios;
 
+-- 8.1. Control de horas académicas (cada bloque equivale a 50 minutos).
+SELECT c.cod_curso, c.den_curso, hc.cod_seccion, hc.tipo_sesion,
+       CASE WHEN hc.tipo_sesion = 'T' THEN c.ht ELSE c.hp END AS horas_malla,
+       SUM(EXTRACT(EPOCH FROM (hc.hora_fin - hc.hora_inicio)) / 3000)::INTEGER AS horas_programadas
+FROM horario_curso hc
+JOIN curso c ON c.cod_fac = hc.cod_fac AND c.cod_esc = hc.cod_esc
+            AND c.corr_pe = hc.corr_pe AND c.cod_curso = hc.cod_curso
+GROUP BY c.cod_curso, c.den_curso, c.ht, c.hp, hc.cod_seccion, hc.tipo_sesion
+ORDER BY c.cod_curso, hc.cod_seccion, hc.tipo_sesion;
+
 -- 9. Historial académico de un estudiante.
 SELECT m.cod_periodo, c.cod_curso, c.den_curso, md.nota_final, md.resultado
 FROM matricula AS m

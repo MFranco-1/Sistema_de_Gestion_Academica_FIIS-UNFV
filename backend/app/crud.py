@@ -527,6 +527,20 @@ def _buscar_sesion(db: Session, locator: schemas.SesionLocator):
     return db.query(models.HorarioCurso).filter_by(**locator.model_dump()).first()
 
 
+def _minutos(valor) -> int:
+    return valor.hour * 60 + valor.minute
+
+
+def _turno_semestre(semestre: int, seccion: str) -> tuple[str, int, int]:
+    seccion = seccion.upper()
+    if semestre <= 2 or (semestre == 3 and seccion != "C"):
+        return "mañana", 8 * 60, 15 * 60
+    if semestre <= 5 or (semestre == 6 and seccion == "A") or semestre == 3:
+        return "tarde", 13 * 60, 18 * 60
+    # Seis bloques académicos de 50 min: el último termina a las 22:10.
+    return "noche", 17 * 60 + 10, 22 * 60 + 10
+
+
 def _validar_sesion(
     db: Session, datos: schemas.SesionCreate, excluir: schemas.SesionLocator | None = None,
 ):
@@ -552,6 +566,34 @@ def _validar_sesion(
         raise HTTPException(status_code=404, detail="El curso no existe en la malla del horario.")
     if curso.semestre != datos.semestre_corr:
         raise HTTPException(status_code=422, detail="El curso no pertenece al semestre del horario.")
+    duracion = _minutos(datos.hora_fin) - _minutos(datos.hora_inicio)
+    if duracion <= 0 or duracion % 50 != 0:
+        raise HTTPException(status_code=422, detail="Cada sesión debe usar bloques completos de 50 minutos académicos.")
+    turno, inicio_turno, fin_turno = _turno_semestre(datos.semestre_corr, datos.cod_seccion)
+    if _minutos(datos.hora_inicio) < inicio_turno or _minutos(datos.hora_fin) > fin_turno:
+        raise HTTPException(
+            status_code=422,
+            detail=f"La sección {datos.cod_seccion} del ciclo {datos.semestre_corr} pertenece al turno {turno}.",
+        )
+    horas_requeridas = curso.ht if datos.tipo_sesion == "T" else curso.hp
+    if horas_requeridas <= 0:
+        raise HTTPException(status_code=422, detail="La malla no asigna horas para este tipo de sesión.")
+    sesiones_tipo = db.query(models.HorarioCurso).filter_by(
+        id_horario=datos.id_horario, semestre_corr=datos.semestre_corr,
+        cod_curso=datos.cod_curso, cod_seccion=datos.cod_seccion,
+        tipo_sesion=datos.tipo_sesion,
+    ).all()
+    minutos_asignados = sum(_minutos(item.hora_fin) - _minutos(item.hora_inicio) for item in sesiones_tipo)
+    if excluir:
+        original = _buscar_sesion(db, excluir)
+        if original:
+            minutos_asignados -= _minutos(original.hora_fin) - _minutos(original.hora_inicio)
+    if minutos_asignados + duracion > horas_requeridas * 50:
+        disponibles = max((horas_requeridas * 50 - minutos_asignados) // 50, 0)
+        raise HTTPException(
+            status_code=422,
+            detail=f"La malla exige {horas_requeridas} hora(s) académica(s) de tipo {datos.tipo_sesion}; quedan {disponibles} por asignar.",
+        )
 
     solape = and_(
         models.HorarioCurso.dia_semana == datos.dia_semana,
@@ -825,6 +867,22 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
 
     resultado = []
     for oferta, curso, matriculados in filas:
+        sesiones = (
+            db.query(models.HorarioCurso)
+            .join(models.HorarioCabecera, models.HorarioCabecera.id_horario == models.HorarioCurso.id_horario)
+            .filter(
+                models.HorarioCabecera.cod_periodo == cod_periodo,
+                models.HorarioCabecera.corr_pe == oferta.corr_pe,
+                models.HorarioCurso.cod_curso == oferta.cod_curso,
+                models.HorarioCurso.cod_seccion == oferta.cod_seccion,
+            )
+            .order_by(models.HorarioCurso.dia_semana, models.HorarioCurso.hora_inicio)
+            .all()
+        )
+        horario_resumen = " · ".join(
+            f"{s.dia_semana.title()} {s.hora_inicio.strftime('%H:%M')}-{s.hora_fin.strftime('%H:%M')} ({s.tipo_sesion})"
+            for s in sesiones
+        ) or "Horario pendiente"
         es_pendiente = curso.cod_curso in desaprobados
         if periodo.tipo_periodo == "VERANO":
             relevante_periodo = es_pendiente
@@ -857,8 +915,24 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
             "matriculados": matriculados,
             "vacantes_disponibles": max(oferta.vacantes - matriculados, 0),
             "disponible": not motivo, "motivo": motivo,
+            "horario_resumen": horario_resumen,
         })
     return resultado
+
+
+def abrir_seccion(db: Session, datos: schemas.OfertaSeccionCreate):
+    if not db.query(models.PeriodoAcademico).filter_by(cod_periodo=datos.cod_periodo).first():
+        raise HTTPException(status_code=404, detail="El período académico no existe.")
+    if not db.query(models.Curso).filter_by(
+        cod_fac=datos.cod_fac, cod_esc=datos.cod_esc, corr_pe=datos.corr_pe,
+        cod_curso=datos.cod_curso,
+    ).first():
+        raise HTTPException(status_code=404, detail="El curso no pertenece a la malla seleccionada.")
+    if db.query(models.OfertaCurso).filter_by(**datos.model_dump(exclude={"vacantes"})).first():
+        raise HTTPException(status_code=409, detail="La sección ya está abierta para este curso y período.")
+    db.add(models.OfertaCurso(**datos.model_dump(), activo=True))
+    _commit(db, "No se pudo abrir la sección.")
+    return {"mensaje": f"Sección {datos.cod_seccion} abierta con capacidad para {datos.vacantes} estudiantes."}
 
 
 def crear_matricula(db: Session, datos: schemas.MatriculaCreate):
@@ -887,6 +961,34 @@ def crear_matricula(db: Session, datos: schemas.MatriculaCreate):
                 status_code=409,
                 detail=f"{oferta['cod_curso']} no puede matricularse: {oferta['motivo']}",
             )
+
+    seleccion = [disponibles[id_oferta] for id_oferta in datos.ofertas]
+    codigos = [item["cod_curso"] for item in seleccion]
+    if len(codigos) != len(set(codigos)):
+        raise HTTPException(status_code=409, detail="Seleccione solo una sección por curso.")
+    sesiones_por_oferta = {}
+    for item in seleccion:
+        sesiones_por_oferta[item["id_oferta"]] = (
+            db.query(models.HorarioCurso)
+            .join(models.HorarioCabecera, models.HorarioCabecera.id_horario == models.HorarioCurso.id_horario)
+            .filter(
+                models.HorarioCabecera.cod_periodo == datos.cod_periodo,
+                models.HorarioCurso.cod_curso == item["cod_curso"],
+                models.HorarioCurso.cod_seccion == item["cod_seccion"],
+            ).all()
+        )
+    for indice, izquierda in enumerate(seleccion):
+        for derecha in seleccion[indice + 1:]:
+            for sesion_a in sesiones_por_oferta[izquierda["id_oferta"]]:
+                for sesion_b in sesiones_por_oferta[derecha["id_oferta"]]:
+                    if (sesion_a.dia_semana == sesion_b.dia_semana
+                            and sesion_a.hora_inicio < sesion_b.hora_fin
+                            and sesion_a.hora_fin > sesion_b.hora_inicio):
+                        raise HTTPException(
+                            status_code=409,
+                            detail=(f"Cruce de horario entre {izquierda['cod_curso']} sección {izquierda['cod_seccion']} "
+                                    f"y {derecha['cod_curso']} sección {derecha['cod_seccion']} ({sesion_a.dia_semana})."),
+                        )
 
     matricula = models.Matricula(
         cod_estudiante=estudiante.cod_estudiante, cod_periodo=datos.cod_periodo,

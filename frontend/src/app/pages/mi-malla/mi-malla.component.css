@@ -3,13 +3,14 @@
 .page-header h1{margin:7px 0 5px;color:var(--unfv-maroon);font:600 28px Georgia,serif}
 .page-header p{color:var(--text-secondary)}
 .notice{padding:12px;border-left:4px solid var(--danger-color);background:#fff;color:var(--danger-color)}
+.malla-help{margin-bottom:10px;padding:11px 14px;border-left:4px solid var(--unfv-gold);background:#fff;color:#574d48;font-size:12px}.selected-info{display:flex;justify-content:space-between;gap:15px;margin-bottom:10px;padding:10px 14px;background:var(--unfv-maroon);color:#fff;font-size:11px}
 .board-wrap{overflow-x:auto;padding-bottom:14px}
 .malla-board{display:grid;grid-template-columns:repeat(10,minmax(175px,1fr));gap:10px;min-width:1830px;padding:12px;border:1px solid #c8b36b;background:#fff}
 .semester>header{display:flex;flex-direction:column;gap:3px;margin-bottom:8px;padding:7px 5px;border:1px solid #2f2927;background:#f1eee9;text-align:center}
 .semester>header strong{font-size:9px}.semester>header span{font-size:9px;color:var(--text-secondary)}
-.semester article{margin-bottom:8px;border:1px solid #4f4743;background:#fff}
+.semester article{margin-bottom:8px;border:1px solid #4f4743;background:#fff;cursor:pointer;transition:.16s transform,.16s box-shadow}.semester article:hover,.semester article:focus{outline:none;transform:translateY(-2px);box-shadow:0 4px 10px #0002}.semester article.selected{outline:3px solid var(--unfv-maroon)}
 .course-code{padding:4px 6px;background:#e6c72f;color:#221f1c;font-size:9px;font-weight:800;text-align:center}
 .course-name{display:flex;align-items:center;justify-content:center;min-height:46px;padding:6px;text-align:center;font-size:9px;font-weight:700;line-height:1.3}
 .course-meta{display:flex;justify-content:space-between;padding:4px 6px;border-top:1px solid #bbb3ae;color:#5f5753;font-size:8px;text-transform:capitalize}
-.prereq{padding:5px 6px;border-top:1px solid #bbb3ae;background:#fff9d8;font-size:8px;line-height:1.3}
+.prereq{padding:5px 6px;border-top:1px solid #bbb3ae;background:#fff9d8;font-size:8px;line-height:1.3}.prereq b{display:block;margin-bottom:3px}.prereq button{display:block;width:100%;padding:2px;border:0;background:transparent;color:#6f171f;text-align:left;font-size:8px;cursor:pointer}.prereq button:hover{text-decoration:underline}
 .prereq b{color:var(--unfv-maroon)}

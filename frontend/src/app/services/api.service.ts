@@ -184,6 +184,15 @@ export interface OfertaCurso {
   vacantes_disponibles: number;
   disponible: boolean;
   motivo: string;
+  horario_resumen: string;
+}
+
+export interface OfertaSeccionPayload {
+  cod_periodo: string;
+  corr_pe: number;
+  cod_curso: string;
+  cod_seccion: string;
+  vacantes: number;
 }
 
 export interface MatriculaDetalle {
@@ -375,6 +384,10 @@ export class ApiService {
       `${this.apiUrl}/matriculas/${idMatricula}/ofertas/${idOferta}/resultado`,
       { nota_final: notaFinal, resultado }
     );
+  }
+
+  abrirSeccion(datos: OfertaSeccionPayload): Observable<Mensaje> {
+    return this.http.post<Mensaje>(`${this.apiUrl}/ofertas/secciones`, datos);
   }
 
   registrarResultadosLote(idMatricula: number, detalles: MatriculaDetalle[]): Observable<Mensaje> {

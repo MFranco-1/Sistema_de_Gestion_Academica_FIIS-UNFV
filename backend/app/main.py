@@ -244,6 +244,11 @@ def update_sesion(datos: schemas.SesionEdicion, db: Session = Depends(get_db), _
     return crud.editar_sesion(db, datos)
 
 
+@app.post("/ofertas/secciones", response_model=schemas.Mensaje, status_code=status.HTTP_201_CREATED)
+def create_oferta_seccion(datos: schemas.OfertaSeccionCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
+    return crud.abrir_seccion(db, datos)
+
+
 @app.get("/estudiantes/", response_model=List[schemas.Estudiante])
 def read_estudiantes(buscar: str | None = None, db: Session = Depends(get_db), _=Depends(auth.require_any_permission("GESTION_ESTUDIANTES", "GESTION_MATRICULAS", "GESTION_USUARIOS"))):
     return crud.get_estudiantes(db, buscar)

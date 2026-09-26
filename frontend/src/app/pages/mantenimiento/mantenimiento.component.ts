@@ -33,6 +33,9 @@ export class MantenimientoComponent implements OnInit, AfterViewInit {
   estudiantes: Estudiante[] = [];
   editandoEstudiante = '';
   estudianteForm: EstudiantePayload = this.nuevoEstudiante();
+  nuevaSeccion = 'D';
+  capacidadSeccion = 35;
+  cursoNuevaSeccion = '';
 
   cursoForm: CursoPayload = this.nuevoCurso();
   sesionForm: SesionPayload = this.nuevaSesion();
@@ -245,6 +248,49 @@ export class MantenimientoComponent implements OnInit, AfterViewInit {
     });
   }
 
+  abrirSeccion(): void {
+    if (!this.selectedPlan || !this.selectedPeriodo || !this.cursoNuevaSeccion) return;
+    this.limpiarMensajes();
+    this.api.abrirSeccion({
+      cod_periodo: this.selectedPeriodo, corr_pe: Number(this.selectedPlan),
+      cod_curso: this.cursoNuevaSeccion, cod_seccion: this.nuevaSeccion,
+      vacantes: Number(this.capacidadSeccion)
+    }).subscribe({
+      next: data => { this.mensaje = data.mensaje; this.nuevaSeccion = 'D'; },
+      error: error => this.mostrarError(error)
+    });
+  }
+
+  get cursoSesion(): Curso | undefined {
+    return this.cursos.find(curso => curso.cod_curso === this.sesionForm.cod_curso);
+  }
+
+  get horasMallaSesion(): number {
+    if (!this.cursoSesion) return 0;
+    return this.sesionForm.tipo_sesion === 'T' ? this.cursoSesion.ht : this.cursoSesion.hp;
+  }
+
+  get horasAsignadasSesion(): number {
+    return this.sesiones.filter(item =>
+      item.cod_curso === this.sesionForm.cod_curso &&
+      item.cod_seccion === this.sesionForm.cod_seccion &&
+      item.tipo_sesion === this.sesionForm.tipo_sesion &&
+      (!this.sesionOriginal || !(item.dia_semana === this.sesionOriginal.dia_semana && item.hora_inicio === this.sesionOriginal.hora_inicio))
+    ).reduce((total, item) => total + this.duracionAcademica(item.hora_inicio, item.hora_fin), 0);
+  }
+
+  get turnoSesion(): string {
+    const ciclo = Number(this.selectedSemester || 0), seccion = this.sesionForm.cod_seccion.toUpperCase();
+    if (ciclo <= 2 || (ciclo === 3 && seccion !== 'C')) return 'Mañana: 08:00 a 15:00';
+    if (ciclo <= 5 || (ciclo === 6 && seccion === 'A') || ciclo === 3) return 'Tarde: 13:00 a 18:00';
+    return 'Noche: 17:10 a 22:10 (6 bloques académicos)';
+  }
+
+  private duracionAcademica(inicio: string, fin: string): number {
+    const minutos = (valor: string) => { const [h, m] = valor.slice(0, 5).split(':').map(Number); return h * 60 + m; };
+    return (minutos(fin) - minutos(inicio)) / 50;
+  }
+
   editarSesion(sesion: ProgramacionHorario): void {
     this.sesionOriginal = {
       id_horario: sesion.id_horario, semestre_corr: sesion.semestre_corr,
@@ -309,7 +355,7 @@ export class MantenimientoComponent implements OnInit, AfterViewInit {
   }
 
   private nuevaSesion(): SesionPayload {
-    return { id_horario: 0, semestre_corr: 1, cod_curso: '', cod_seccion: 'A', tipo_sesion: 'T', corr_pe: 0, dia_semana: 'LUNES', hora_inicio: '08:00', hora_fin: '09:00', aula: '' };
+    return { id_horario: 0, semestre_corr: 1, cod_curso: '', cod_seccion: 'A', tipo_sesion: 'T', corr_pe: 0, dia_semana: 'LUNES', hora_inicio: '08:00', hora_fin: '08:50', aula: '' };
   }
 
   private nuevoEstudiante(): EstudiantePayload {

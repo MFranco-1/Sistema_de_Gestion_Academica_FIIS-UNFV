@@ -377,34 +377,152 @@ def insertar_plan(db, corr_pe, plan, cursos, prerequisitos):
             ))
 
 
-def insertar_horario_demo(db):
-    cabecera = models.HorarioCabecera(
-        cod_periodo="2026-II", cod_fac=FACULTAD, cod_esc=ESCUELA, corr_pe=2,
-        fecha_creacion=date(2026, 8, 10),
-    )
-    db.add(cabecera)
+def asegurar_horarios_y_secciones(db):
+    """Abre A/B/C y genera una programación semanal idempotente para el período activo."""
+    if not db.query(models.PlanEstudio).filter_by(corr_pe=2).first():
+        return
     db.flush()
-    db.add(models.HorarioDetalle(id_horario=cabecera.id_horario, semestre_corr=6, semestre_desc="Sexto semestre"))
+    db.execute(text("""
+        INSERT INTO oferta_curso
+            (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion, vacantes, activo)
+        SELECT cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, s.seccion, vacantes, activo
+        FROM oferta_curso CROSS JOIN (VALUES ('B'), ('C')) AS s(seccion)
+        WHERE cod_seccion = 'A'
+        ON CONFLICT (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion) DO NOTHING
+    """))
+    periodo = db.query(models.PeriodoAcademico).filter_by(activo=True).order_by(
+        models.PeriodoAcademico.fecha_inicio.desc(),
+    ).first()
+    if not periodo:
+        return
+    cabecera = db.query(models.HorarioCabecera).filter_by(
+        cod_periodo=periodo.cod_periodo, cod_fac=FACULTAD, cod_esc=ESCUELA, corr_pe=2,
+    ).first()
+    if not cabecera:
+        cabecera = models.HorarioCabecera(
+            cod_periodo=periodo.cod_periodo, cod_fac=FACULTAD, cod_esc=ESCUELA,
+            corr_pe=2, fecha_creacion=date.today(),
+        )
+        db.add(cabecera)
+        db.flush()
+    nombres = ("Primer", "Segundo", "Tercer", "Cuarto", "Quinto", "Sexto", "Séptimo", "Octavo", "Noveno", "Décimo")
+    for semestre in range(1, 11):
+        if not db.query(models.HorarioDetalle).filter_by(
+            id_horario=cabecera.id_horario, semestre_corr=semestre,
+        ).first():
+            db.add(models.HorarioDetalle(
+                id_horario=cabecera.id_horario, semestre_corr=semestre,
+                semestre_desc=f"{nombres[semestre - 1]} semestre",
+            ))
     db.flush()
 
-    sesiones = [
-        ("P19-39", "A", "P", "JUEVES", time(8, 0), time(11, 20), "LAB-03"),
-        ("P19-44", "A", "T", "MARTES", time(13, 0), time(14, 40), "A-204"),
-        ("P19-44", "A", "P", "VIERNES", time(10, 0), time(11, 40), "LAB-02"),
-        ("P19-40", "A", "T", "MARTES", time(14, 40), time(16, 20), "A-305"),
-        ("P19-40", "A", "P", "JUEVES", time(14, 40), time(16, 20), "A-305"),
-        ("P19-42", "A", "T", "MARTES", time(16, 20), time(18, 0), "A-301"),
-        ("P19-42", "A", "P", "JUEVES", time(19, 30), time(21, 10), "LAB-01"),
-        ("P19-43", "A", "T", "LUNES", time(18, 0), time(22, 0), "LAB-REDES"),
-        ("P19-41", "A", "P", "MIERCOLES", time(16, 0), time(21, 0), "LAB-BD"),
-        ("P19-45", "A", "P", "SABADO", time(14, 0), time(16, 30), "LAB-04"),
-    ]
-    for codigo, seccion, tipo, dia, inicio, fin, aula in sesiones:
-        db.add(models.HorarioCurso(
-            id_horario=cabecera.id_horario, semestre_corr=6, cod_curso=codigo,
-            cod_seccion=seccion, tipo_sesion=tipo, cod_fac=FACULTAD, cod_esc=ESCUELA,
-            corr_pe=2, dia_semana=dia, hora_inicio=inicio, hora_fin=fin, aula=aula,
-        ))
+    dias = ("LUNES", "MARTES", "MIERCOLES", "JUEVES", "VIERNES", "SABADO")
+    cursos = db.query(models.Curso).filter_by(corr_pe=2).order_by(
+        models.Curso.semestre, models.Curso.cod_curso,
+    ).all()
+    por_semestre = {n: [c for c in cursos if c.semestre == n] for n in range(1, 11)}
+    legado = db.query(models.HorarioCurso).filter_by(
+        id_horario=cabecera.id_horario, semestre_corr=6, cod_seccion="A",
+    ).all()
+    codigos_legado = {"P19-39", "P19-40", "P19-41", "P19-42", "P19-43", "P19-44", "P19-45"}
+    if (len(legado) == 10 and {item.cod_curso for item in legado} == codigos_legado
+            and any((item.hora_fin.hour * 60 + item.hora_fin.minute
+                     - item.hora_inicio.hour * 60 - item.hora_inicio.minute) % 50 for item in legado)):
+        # Sustituye exclusivamente el horario demostrativo antiguo, que no respetaba bloques de 50 min.
+        for item in legado:
+            db.delete(item)
+        db.flush()
+    for semestre in range(1, 11):
+        for seccion in ("A", "B", "C"):
+            if db.query(models.HorarioCurso).filter_by(
+                id_horario=cabecera.id_horario, semestre_corr=semestre, cod_seccion=seccion,
+            ).first():
+                continue
+            if semestre <= 2 or (semestre == 3 and seccion != "C"):
+                inicio, slots_dia = 8 * 60, 8
+            elif semestre <= 5 or (semestre == 6 and seccion == "A") or semestre == 3:
+                inicio, slots_dia = 13 * 60, 6
+            else:
+                inicio, slots_dia = 17 * 60 + 10, 6
+            cursor = 0
+            for item in por_semestre[semestre]:
+                for tipo_sesion, horas in (("T", item.ht), ("P", item.hp)):
+                    restantes = horas
+                    while restantes > 0:
+                        indice_dia, slot_dia = divmod(cursor, slots_dia)
+                        if indice_dia >= len(dias):
+                            raise RuntimeError(f"No hay espacio semanal para el ciclo {semestre}, sección {seccion}.")
+                        bloque = min(restantes, slots_dia - slot_dia)
+                        minuto_inicio = inicio + slot_dia * 50
+                        minuto_fin = minuto_inicio + bloque * 50
+                        db.add(models.HorarioCurso(
+                            id_horario=cabecera.id_horario, semestre_corr=semestre,
+                            cod_curso=item.cod_curso, cod_seccion=seccion,
+                            tipo_sesion=tipo_sesion, cod_fac=FACULTAD, cod_esc=ESCUELA,
+                            corr_pe=2, dia_semana=dias[indice_dia],
+                            hora_inicio=time(minuto_inicio // 60, minuto_inicio % 60),
+                            hora_fin=time(minuto_fin // 60, minuto_fin % 60),
+                            aula=f"S{semestre:02d}-{seccion}",
+                        ))
+                        cursor += bloque
+                        restantes -= bloque
+    db.flush()
+
+
+def asegurar_estudiantes_secciones(db):
+    """Agrega alumnos demostrativos y los distribuye entre A, B y C sin alterar existentes."""
+    if not db.query(models.PlanEstudio).filter_by(corr_pe=2).first():
+        return
+    alumnos = (
+        ("2024001011", "71001011", "Alarcón Vega, María", 2, "A"),
+        ("2023001022", "71001022", "Benavides Rojas, Luis", 4, "B"),
+        ("2022001033", "71001033", "Cáceres Silva, Ana", 6, "C"),
+        ("2021001044", "71001044", "Delgado Poma, José", 8, "A"),
+        ("2020001055", "71001055", "Espinoza Torres, Carla", 10, "B"),
+        ("2024001066", "71001066", "Flores Medina, Miguel", 2, "C"),
+    )
+    periodo = db.query(models.PeriodoAcademico).filter_by(activo=True).first()
+    for codigo, dni, nombre, ciclo, seccion in alumnos:
+        estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
+        if not estudiante:
+            estudiante = models.Estudiante(
+                cod_estudiante=codigo, dni=dni, apellidos_nombres=nombre,
+                correo=f"{codigo}@unfv.edu.pe", cod_fac=FACULTAD, cod_esc=ESCUELA,
+                corr_pe=2, ciclo_actual=ciclo, estado="ACTIVO",
+            )
+            db.add(estudiante)
+            db.flush()
+        auth.ensure_student_user(db, estudiante)
+        if not periodo or db.query(models.Matricula).filter_by(
+            cod_estudiante=codigo, cod_periodo=periodo.cod_periodo,
+        ).first():
+            continue
+        ofertas = (db.query(models.OfertaCurso).join(
+            models.Curso,
+            (models.Curso.corr_pe == models.OfertaCurso.corr_pe)
+            & (models.Curso.cod_curso == models.OfertaCurso.cod_curso)
+            & (models.Curso.cod_fac == models.OfertaCurso.cod_fac)
+            & (models.Curso.cod_esc == models.OfertaCurso.cod_esc),
+        ).filter(
+            models.OfertaCurso.cod_periodo == periodo.cod_periodo,
+            models.OfertaCurso.corr_pe == 2,
+            models.OfertaCurso.cod_seccion == seccion,
+            models.Curso.semestre == ciclo,
+        ).order_by(models.Curso.cod_curso).limit(3).all())
+        if not ofertas:
+            continue
+        matricula = models.Matricula(
+            cod_estudiante=codigo, cod_periodo=periodo.cod_periodo,
+            cod_fac=FACULTAD, cod_esc=ESCUELA, corr_pe=2,
+            ciclo_matricula=ciclo, fecha_matricula=date.today(), estado="REGISTRADA",
+        )
+        db.add(matricula)
+        db.flush()
+        for oferta in ofertas:
+            db.add(models.MatriculaDetalle(
+                id_matricula=matricula.id_matricula, id_oferta=oferta.id_oferta,
+                resultado="MATRICULADO",
+            ))
 
 
 def insertar_periodos_y_ofertas(db):
@@ -508,6 +626,9 @@ def seed_data(reset=False):
     try:
         auth.ensure_security_data(db)
         if db.query(models.PlanEstudio).first():
+            asegurar_horarios_y_secciones(db)
+            asegurar_estudiantes_secciones(db)
+            db.commit()
             print("La base ya contiene planes; se conservaron los datos existentes.")
             return
         db.add(models.Facultad(cod_fac=FACULTAD, den_fac="Facultad de Ingeniería Industrial y de Sistemas"))
@@ -525,8 +646,9 @@ def seed_data(reset=False):
         }, construir_cursos_2019(), PREREQUISITOS_2019)
         insertar_docentes(db)
         insertar_periodos_y_ofertas(db)
-        insertar_horario_demo(db)
         insertar_estudiante_demo(db)
+        asegurar_horarios_y_secciones(db)
+        asegurar_estudiantes_secciones(db)
         db.commit()
         print("Datos cargados: mallas, períodos 2024-2026, ofertas, estudiante e historial demostrativo.")
     except Exception:

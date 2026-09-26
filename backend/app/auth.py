@@ -156,6 +156,9 @@ def ensure_security_data(db: Session) -> None:
     defaults = (
         (PERFIL_ADMIN, "Administrador", PERMISOS_ADMIN),
         (PERFIL_ESTUDIANTE, "Estudiante", PERMISOS_ESTUDIANTE),
+        ("JEFE_DEPARTAMENTO", "Jefe de departamento", ["MANTENIMIENTO_ACADEMICO", "PLANA_DOCENTE"]),
+        ("DIRECTOR_ESCUELA", "Director de escuela", ["GESTION_CURRICULAR", "PLANA_DOCENTE"]),
+        ("ADMINISTRACION", "Administración", ["GESTION_ESTUDIANTES", "GESTION_USUARIOS", "GESTION_MATRICULAS"]),
     )
     for codigo, nombre, permisos_default in defaults:
         perfil = db.query(models.Perfil).filter_by(codigo=codigo).first()

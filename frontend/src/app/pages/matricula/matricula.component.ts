@@ -14,6 +14,7 @@ export class MatriculaComponent implements OnInit {
   mensaje = '';
   error = '';
   cargando = true;
+  fotoPerfil = '';
 
   constructor(private api: ApiService, public auth: AuthService) {}
 
@@ -31,7 +32,12 @@ export class MatriculaComponent implements OnInit {
 
   cargarFicha(): void {
     this.api.getMiEstudiante().subscribe({
-      next: estudiante => { this.estudiante = estudiante; this.cargando = false; this.cargarOfertas(); },
+      next: estudiante => {
+        this.estudiante = estudiante;
+        this.fotoPerfil = localStorage.getItem(`fiis_foto_${estudiante.cod_estudiante}`) || '';
+        this.cargando = false;
+        this.cargarOfertas();
+      },
       error: error => { this.cargando = false; this.mostrarError(error); }
     });
   }
@@ -67,6 +73,20 @@ export class MatriculaComponent implements OnInit {
   }
 
   semestreRomano(numero: number): string { return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][numero - 1]; }
+  get iniciales(): string {
+    return (this.estudiante?.apellidos_nombres || '').split(/[ ,]+/).filter(Boolean).slice(0, 2).map(parte => parte[0]).join('').toUpperCase();
+  }
+  seleccionarFoto(event: Event): void {
+    const archivo = (event.target as HTMLInputElement).files?.[0];
+    if (!archivo || !archivo.type.startsWith('image/')) return;
+    if (archivo.size > 1024 * 1024) { this.error = 'La foto debe pesar como máximo 1 MB.'; return; }
+    const lector = new FileReader();
+    lector.onload = () => {
+      this.fotoPerfil = String(lector.result);
+      if (this.estudiante) localStorage.setItem(`fiis_foto_${this.estudiante.cod_estudiante}`, this.fotoPerfil);
+    };
+    lector.readAsDataURL(archivo);
+  }
   get creditosSeleccionados(): number {
     return this.ofertas.filter(item => this.seleccionadas.has(item.id_oferta)).reduce((total, item) => total + item.cred, 0);
   }

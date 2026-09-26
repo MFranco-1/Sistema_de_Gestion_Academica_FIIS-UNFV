@@ -299,6 +299,22 @@ class OfertaCurso(BaseModel):
     vacantes_disponibles: int
     disponible: bool
     motivo: str = ""
+    horario_resumen: str = "Horario pendiente"
+
+
+class OfertaSeccionCreate(BaseModel):
+    cod_periodo: str
+    corr_pe: int
+    cod_curso: str
+    cod_seccion: str = Field(min_length=1, max_length=10)
+    vacantes: int = Field(gt=0, le=100)
+    cod_fac: int = 1
+    cod_esc: int = 1
+
+    @field_validator("cod_curso", "cod_seccion")
+    @classmethod
+    def normalizar_oferta(cls, valor: str) -> str:
+        return valor.strip().upper()
 
 
 class MatriculaCreate(BaseModel):

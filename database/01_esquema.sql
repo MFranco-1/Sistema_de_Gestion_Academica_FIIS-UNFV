@@ -231,9 +231,12 @@ CREATE TABLE usuario_perfil (
     CONSTRAINT pk_usuario_perfil PRIMARY KEY (id_usuario, id_perfil)
 );
 
-INSERT INTO perfil (codigo, nombre) VALUES
-    ('ADMINISTRADOR', 'Administrador'),
-    ('ESTUDIANTE', 'Estudiante');
+INSERT INTO perfil (codigo, nombre, permisos) VALUES
+    ('ADMINISTRADOR', 'Administrador', 'GESTION_CURRICULAR,MANTENIMIENTO_ACADEMICO,PLANA_DOCENTE,GESTION_ESTUDIANTES,GESTION_USUARIOS,GESTION_PERFILES,GESTION_MATRICULAS'),
+    ('ESTUDIANTE', 'Estudiante', 'MATRICULA_PROPIA'),
+    ('JEFE_DEPARTAMENTO', 'Jefe de departamento', 'MANTENIMIENTO_ACADEMICO,PLANA_DOCENTE'),
+    ('DIRECTOR_ESCUELA', 'Director de escuela', 'GESTION_CURRICULAR,PLANA_DOCENTE'),
+    ('ADMINISTRACION', 'Administración', 'GESTION_ESTUDIANTES,GESTION_USUARIOS,GESTION_MATRICULAS');
 
 CREATE INDEX ix_curso_plan_semestre
     ON curso(cod_fac, cod_esc, corr_pe, semestre);

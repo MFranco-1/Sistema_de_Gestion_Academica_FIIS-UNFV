@@ -6,21 +6,29 @@
 
 <div class="notice success" *ngIf="mensaje">{{ mensaje }}</div>
 <div class="notice error" *ngIf="error">{{ error }}</div>
-<div class="student-summary" *ngIf="estudiante">
-  <div><small>CÓDIGO</small><strong>{{ estudiante.cod_estudiante }}</strong></div>
-  <div><small>PLAN DE ESTUDIOS</small><strong>{{ estudiante.den_plan }}</strong></div>
-  <div><small>CICLO ACTUAL</small><strong>{{ semestreRomano(estudiante.ciclo_actual) }}</strong></div>
-  <div><small>AÑO DE INGRESO</small><strong>{{ estudiante.anio_ingreso }}</strong></div>
-  <div><small>CRÉDITOS APROBADOS</small><strong>{{ estudiante.creditos_aprobados }}</strong></div>
-  <div><small>CRÉDITOS MATRICULADOS</small><strong>{{ estudiante.creditos_matriculados }}</strong></div>
-</div>
+<section class="student-profile" *ngIf="estudiante">
+  <div class="photo-wrap">
+    <img *ngIf="fotoPerfil" [src]="fotoPerfil" alt="Foto del estudiante">
+    <div class="photo-placeholder" *ngIf="!fotoPerfil">{{ iniciales }}</div>
+    <label class="photo-action">Agregar foto<input type="file" accept="image/*" (change)="seleccionarFoto($event)"></label>
+  </div>
+  <div class="profile-main"><small>PERFIL DEL ALUMNO</small><h2>{{ estudiante.apellidos_nombres }}</h2><p>Escuela Profesional de Ingeniería de Sistemas</p><span class="status">{{ estudiante.estado }}</span></div>
+  <div class="profile-data">
+    <div><small>CÓDIGO</small><strong>{{ estudiante.cod_estudiante }}</strong></div>
+    <div><small>CICLO ACTUAL</small><strong>{{ semestreRomano(estudiante.ciclo_actual) }}</strong></div>
+    <div><small>AÑO DE INGRESO</small><strong>{{ estudiante.anio_ingreso }}</strong></div>
+    <div><small>PLAN</small><strong>{{ estudiante.den_plan }}</strong></div>
+    <div><small>CRÉDITOS APROBADOS</small><strong>{{ estudiante.creditos_aprobados }}</strong></div>
+    <div><small>CRÉDITOS MATRICULADOS</small><strong>{{ estudiante.creditos_matriculados }}</strong></div>
+  </div>
+</section>
 
 <section class="academic-section" *ngIf="estudiante">
   <div class="section-title"><div><span>MATRÍCULA ACADÉMICA</span><h2>Cursos disponibles</h2></div></div>
   <div class="period-selector"><div class="field"><label>PERÍODO ACADÉMICO</label><select [(ngModel)]="periodoSeleccionado" (change)="cargarOfertas()"><option *ngFor="let periodo of periodos" [value]="periodo.cod_periodo">{{ periodo.den_periodo }}</option></select></div><p>El sistema valida automáticamente su ciclo, prerrequisitos, cursos aprobados y vacantes.</p></div>
-  <div class="table-wrap"><table><thead><tr><th></th><th>Curso</th><th>Ciclo</th><th>Sección</th><th>Vacantes</th><th>Situación</th></tr></thead><tbody>
-    <tr *ngFor="let oferta of ofertas" [class.blocked]="!oferta.disponible"><td><input type="checkbox" [disabled]="!oferta.disponible" [checked]="seleccionadas.has(oferta.id_oferta)" (change)="alternarOferta(oferta.id_oferta, $any($event.target).checked)"></td><td><strong>{{ oferta.cod_curso }}</strong> · {{ oferta.den_curso }}</td><td>{{ semestreRomano(oferta.semestre) }}</td><td>{{ oferta.cod_seccion }}</td><td>{{ oferta.vacantes_disponibles }} / {{ oferta.vacantes }}</td><td><span class="available" *ngIf="oferta.disponible">Disponible</span><span class="reason" *ngIf="!oferta.disponible">{{ oferta.motivo }}</span></td></tr>
-    <tr *ngIf="!ofertas.length"><td colspan="6" class="empty">No existen cursos ofertados para este período.</td></tr>
+  <div class="table-wrap"><table><thead><tr><th></th><th>Curso</th><th>Ciclo</th><th>Sección</th><th>Horario disponible</th><th>Vacantes</th><th>Situación</th></tr></thead><tbody>
+    <tr *ngFor="let oferta of ofertas" [class.blocked]="!oferta.disponible"><td><input type="checkbox" [disabled]="!oferta.disponible" [checked]="seleccionadas.has(oferta.id_oferta)" (change)="alternarOferta(oferta.id_oferta, $any($event.target).checked)"></td><td><strong>{{ oferta.cod_curso }}</strong> · {{ oferta.den_curso }}</td><td>{{ semestreRomano(oferta.semestre) }}</td><td>{{ oferta.cod_seccion }}</td><td class="schedule-cell">{{ oferta.horario_resumen }}</td><td>{{ oferta.vacantes_disponibles }} / {{ oferta.vacantes }}</td><td><span class="available" *ngIf="oferta.disponible">Disponible</span><span class="reason" *ngIf="!oferta.disponible">{{ oferta.motivo }}</span></td></tr>
+    <tr *ngIf="!ofertas.length"><td colspan="7" class="empty">No existen cursos ofertados para este período.</td></tr>
   </tbody></table></div>
   <div class="enroll-action"><span>{{ seleccionadas.size }} curso(s) · {{ creditosSeleccionados }} crédito(s)</span><button class="primary" type="button" (click)="registrarMatricula()" [disabled]="!seleccionadas.size">REGISTRAR MATRÍCULA</button></div>
 </section>
