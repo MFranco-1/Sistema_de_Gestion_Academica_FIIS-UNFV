@@ -37,6 +37,15 @@ with engine.begin() as migration_connection:
         WHERE nota_final IS NOT NULL
           AND (nota_practicas IS NULL OR nota_parcial IS NULL OR nota_examen_final IS NULL)
     """)
+    migration_connection.exec_driver_sql("""
+        UPDATE plan_estudio
+        SET den_plan = CASE
+            WHEN anio_plan = 2010 THEN 'Plan Curricular 2010'
+            WHEN anio_plan = 2019 THEN 'Plan de Estudios 2019'
+            ELSE den_plan
+        END
+        WHERE anio_plan IN (2010, 2019)
+    """)
 with SessionLocal() as startup_db:
     auth.ensure_security_data(startup_db)
 

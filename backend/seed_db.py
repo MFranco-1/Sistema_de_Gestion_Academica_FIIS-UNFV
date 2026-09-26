@@ -734,6 +734,15 @@ def seed_data(reset=False):
             WHERE nota_final IS NOT NULL
               AND (nota_practicas IS NULL OR nota_parcial IS NULL OR nota_examen_final IS NULL)
         """)
+        connection.exec_driver_sql("""
+            UPDATE plan_estudio
+            SET den_plan = CASE
+                WHEN anio_plan = 2010 THEN 'Plan Curricular 2010'
+                WHEN anio_plan = 2019 THEN 'Plan de Estudios 2019'
+                ELSE den_plan
+            END
+            WHERE anio_plan IN (2010, 2019)
+        """)
     migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()
     inicializar_estudiantes_primer_ciclo()
@@ -751,12 +760,12 @@ def seed_data(reset=False):
         db.flush()
         insertar_plan(db, 1, {
             "cod_fac": FACULTAD, "cod_esc": ESCUELA, "corr_pe": 1,
-            "den_plan": "Plan Curricular 2010 - Malla antigua", "anio_plan": 2010,
+            "den_plan": "Plan Curricular 2010", "anio_plan": 2010,
             "fecha_vigencia": date(2010, 3, 15), "fecha_baja": date(2018, 12, 31), "vigente": False,
         }, CURSOS_2010, PREREQUISITOS_2010)
         insertar_plan(db, 2, {
             "cod_fac": FACULTAD, "cod_esc": ESCUELA, "corr_pe": 2,
-            "den_plan": "Plan de Estudios 2019 - Malla vigente", "anio_plan": 2019,
+            "den_plan": "Plan de Estudios 2019", "anio_plan": 2019,
             "fecha_vigencia": date(2019, 1, 1), "fecha_baja": None, "vigente": True,
         }, construir_cursos_2019(), PREREQUISITOS_2019)
         insertar_docentes(db)
