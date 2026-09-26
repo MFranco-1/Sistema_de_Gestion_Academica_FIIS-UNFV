@@ -148,6 +148,10 @@ class MatriculaAccesoEstado(BaseModel):
     total_estudiantes: int = 0
     limite_tercio: int = 0
     tercio_superior: bool = False
+    sancion_trica: bool = False
+    cursos_trica: list[str] = Field(default_factory=list)
+    periodos_suspension: list[str] = Field(default_factory=list)
+    periodo_retorno: Optional[str] = None
 
 
 class ProgramacionHorario(BaseModel):

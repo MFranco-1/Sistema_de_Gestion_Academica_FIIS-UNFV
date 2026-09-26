@@ -282,6 +282,116 @@ def _fases_matricula(periodo: models.PeriodoAcademico) -> dict[str, str]:
         return {}
 
 
+def _sancion_trica(
+    db: Session, cod_estudiante: str, cod_periodo_objetivo: str,
+) -> dict:
+    """Calcula la suspensión posterior a cada tercera desaprobación de un curso."""
+    estudiante = db.query(models.Estudiante).filter_by(
+        cod_estudiante=cod_estudiante,
+    ).first()
+    objetivo = db.query(models.PeriodoAcademico).filter_by(
+        cod_periodo=cod_periodo_objetivo,
+    ).first()
+    if not estudiante or not objetivo:
+        return {
+            "activa": False, "cursos": [], "periodos_suspension": [],
+            "periodo_retorno": None,
+        }
+
+    intentos = (
+        db.query(
+            models.OfertaCurso.cod_curso,
+            models.Curso.den_curso,
+            models.MatriculaDetalle.resultado,
+            models.PeriodoAcademico.cod_periodo,
+            models.PeriodoAcademico.fecha_inicio,
+        )
+        .join(
+            models.MatriculaDetalle,
+            models.MatriculaDetalle.id_oferta == models.OfertaCurso.id_oferta,
+        )
+        .join(
+            models.Matricula,
+            models.Matricula.id_matricula == models.MatriculaDetalle.id_matricula,
+        )
+        .join(
+            models.PeriodoAcademico,
+            models.PeriodoAcademico.cod_periodo == models.Matricula.cod_periodo,
+        )
+        .join(models.Curso, and_(
+            models.Curso.cod_fac == models.OfertaCurso.cod_fac,
+            models.Curso.cod_esc == models.OfertaCurso.cod_esc,
+            models.Curso.corr_pe == models.OfertaCurso.corr_pe,
+            models.Curso.cod_curso == models.OfertaCurso.cod_curso,
+        ))
+        .filter(
+            models.Matricula.cod_estudiante == cod_estudiante,
+            models.Matricula.estado != "ANULADA",
+            models.OfertaCurso.corr_pe == estudiante.corr_pe,
+            models.MatriculaDetalle.resultado.in_(("APROBADO", "DESAPROBADO")),
+            models.PeriodoAcademico.fecha_inicio < objetivo.fecha_inicio,
+        )
+        .order_by(
+            models.OfertaCurso.cod_curso,
+            models.PeriodoAcademico.fecha_inicio,
+            models.Matricula.id_matricula,
+        )
+        .all()
+    )
+    por_curso: dict[str, list] = {}
+    nombres: dict[str, str] = {}
+    for cod_curso, den_curso, resultado, cod_periodo, fecha_inicio in intentos:
+        por_curso.setdefault(cod_curso, []).append(
+            (resultado, cod_periodo, fecha_inicio),
+        )
+        nombres[cod_curso] = den_curso
+
+    periodos = db.query(models.PeriodoAcademico).order_by(
+        models.PeriodoAcademico.fecha_inicio,
+    ).all()
+    sanciones = []
+    for cod_curso, registros in por_curso.items():
+        # Un curso aprobado deja de generar una sanción pendiente.
+        if any(resultado == "APROBADO" for resultado, _, _ in registros):
+            continue
+        desaprobaciones = [registro for registro in registros if registro[0] == "DESAPROBADO"]
+        if len(desaprobaciones) < 3:
+            continue
+        # Si existe reincidencia después de cumplir la baja, cada nuevo grupo
+        # de tres desaprobaciones vuelve a generar dos semestres de suspensión.
+        tercera = desaprobaciones[(len(desaprobaciones) // 3) * 3 - 1]
+        regulares_siguientes = [
+            periodo for periodo in periodos
+            if periodo.tipo_periodo != "VERANO"
+            and periodo.fecha_inicio > tercera[2]
+        ]
+        periodos_suspension = regulares_siguientes[:2]
+        periodo_retorno = regulares_siguientes[2] if len(regulares_siguientes) > 2 else None
+        activa = objetivo.fecha_inicio > tercera[2] and (
+            periodo_retorno is None or objetivo.fecha_inicio < periodo_retorno.fecha_inicio
+        )
+        if activa:
+            sanciones.append({
+                "curso": f"{cod_curso} - {nombres[cod_curso]}",
+                "periodos_suspension": [p.cod_periodo for p in periodos_suspension],
+                "periodo_retorno": periodo_retorno.cod_periodo if periodo_retorno else None,
+                "fecha_retorno": periodo_retorno.fecha_inicio if periodo_retorno else date.max,
+            })
+
+    if not sanciones:
+        return {
+            "activa": False, "cursos": [], "periodos_suspension": [],
+            "periodo_retorno": None,
+        }
+    sancion_principal = max(sanciones, key=lambda item: item["fecha_retorno"])
+    return {
+        "activa": True,
+        "cursos": sorted(item["curso"] for item in sanciones),
+        "periodos_suspension": sancion_principal["periodos_suspension"],
+        "periodo_retorno": sancion_principal["periodo_retorno"],
+    }
+
+
 def get_estado_acceso_matricula(
     db: Session, cod_periodo: str, ciclo: int, cod_estudiante: str | None = None,
     corr_pe: int = 2, cod_fac: int = 1, cod_esc: int = 1,
@@ -295,7 +405,23 @@ def get_estado_acceso_matricula(
     fila = next((item for item in ranking["estudiantes"] if item["cod_estudiante"] == cod_estudiante), None)
     pertenece_tercio = bool(fila and fila["tercio_superior"])
     habilitado = fase == "TODOS" or (fase == "TERCIO" and pertenece_tercio)
-    if fase == "CERRADA":
+    sancion = _sancion_trica(db, cod_estudiante, cod_periodo) if cod_estudiante else {
+        "activa": False, "cursos": [], "periodos_suspension": [], "periodo_retorno": None,
+    }
+    if sancion["activa"]:
+        habilitado = False
+        cursos = ", ".join(sancion["cursos"])
+        periodos = " y ".join(sancion["periodos_suspension"])
+        retorno = sancion["periodo_retorno"]
+        mensaje = f"Suspensión académica por tercera desaprobación de {cursos}."
+        if periodos:
+            mensaje += f" Comprende los períodos {periodos}."
+        mensaje += (
+            f" Podrá volver a matricularse desde {retorno}."
+            if retorno else
+            " El retorno se habilitará al programar los dos siguientes semestres regulares."
+        )
+    elif fase == "CERRADA":
         mensaje = "La matrícula oficial aún no está habilitada para este ciclo. Puede preparar y guardar su prematrícula."
     elif fase == "TERCIO" and not pertenece_tercio:
         mensaje = "La matrícula está habilitada temporalmente solo para estudiantes del tercio superior. Puede conservar su prematrícula."
@@ -310,6 +436,10 @@ def get_estado_acceso_matricula(
         "total_estudiantes": ranking["total_estudiantes"],
         "limite_tercio": ranking["limite_tercio"],
         "tercio_superior": pertenece_tercio,
+        "sancion_trica": sancion["activa"],
+        "cursos_trica": sancion["cursos"],
+        "periodos_suspension": sancion["periodos_suspension"],
+        "periodo_retorno": sancion["periodo_retorno"],
     }
 
 
@@ -1283,6 +1413,20 @@ def crear_matricula(
         )
         if not acceso["habilitado"]:
             raise HTTPException(status_code=403, detail=acceso["mensaje"])
+    else:
+        # La sanción académica también se respeta cuando la matrícula es
+        # registrada desde el módulo administrativo.
+        sancion = _sancion_trica(db, datos.cod_estudiante, datos.cod_periodo)
+        if sancion["activa"]:
+            cursos = ", ".join(sancion["cursos"])
+            retorno = sancion["periodo_retorno"]
+            detalle = f"El estudiante tiene una suspensión académica por tercera desaprobación de {cursos}."
+            detalle += (
+                f" Podrá volver a matricularse desde {retorno}."
+                if retorno else
+                " El retorno se habilitará después de dos semestres regulares."
+            )
+            raise HTTPException(status_code=403, detail=detalle)
     if db.query(models.Matricula).filter_by(
         cod_estudiante=datos.cod_estudiante, cod_periodo=datos.cod_periodo,
     ).first():

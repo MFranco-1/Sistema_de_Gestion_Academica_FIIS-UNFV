@@ -32,7 +32,7 @@
 
 <section class="academic-section" *ngIf="estudiante">
   <div class="section-title"><div><span>MATRÍCULA ACADÉMICA</span><h2>Cursos disponibles</h2></div></div>
-  <div class="enrollment-access" *ngIf="accesoMatricula" [class.enabled]="accesoMatricula.habilitado"><strong>{{ accesoMatricula.habilitado ? 'Matrícula oficial habilitada' : 'Matrícula oficial no habilitada' }}</strong><span>{{ accesoMatricula.mensaje }}</span><small>La prematrícula permanece disponible y no ocupa vacantes.</small></div>
+  <div class="enrollment-access" *ngIf="accesoMatricula" [class.enabled]="accesoMatricula.habilitado"><strong>{{ accesoMatricula.sancion_trica ? 'Matrícula suspendida por tercera desaprobación' : (accesoMatricula.habilitado ? 'Matrícula oficial habilitada' : 'Matrícula oficial no habilitada') }}</strong><span>{{ accesoMatricula.mensaje }}</span><small>Puede consultar su información académica y conservar una prematrícula como referencia.</small></div>
   <div class="period-selector"><div class="field"><label>PERÍODO ACADÉMICO</label><select [(ngModel)]="periodoSeleccionado" (change)="cargarOfertas()"><option *ngFor="let periodo of periodos" [value]="periodo.cod_periodo">{{ periodo.den_periodo }}</option></select></div><p>Al elegir una sección se incluyen juntas la teoría y la práctica del curso, en la misma sección y aula. No es posible combinar dos secciones del mismo curso.</p></div>
 
   <div class="section-filter" *ngIf="seccionesDisponibles.length">

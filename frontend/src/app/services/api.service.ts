@@ -139,6 +139,10 @@ export interface MatriculaAccesoEstado {
   total_estudiantes: number;
   limite_tercio: number;
   tercio_superior: boolean;
+  sancion_trica: boolean;
+  cursos_trica: string[];
+  periodos_suspension: string[];
+  periodo_retorno?: string;
 }
 
 export interface ProgramacionHorario {
