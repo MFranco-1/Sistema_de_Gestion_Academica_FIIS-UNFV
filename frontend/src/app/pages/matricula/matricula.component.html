@@ -27,10 +27,15 @@
   <div class="section-title"><div><span>MATRÍCULA ACADÉMICA</span><h2>Cursos disponibles</h2></div></div>
   <div class="period-selector"><div class="field"><label>PERÍODO ACADÉMICO</label><select [(ngModel)]="periodoSeleccionado" (change)="cargarOfertas()"><option *ngFor="let periodo of periodos" [value]="periodo.cod_periodo">{{ periodo.den_periodo }}</option></select></div><p>Al elegir una sección se incluyen juntas la teoría y la práctica del curso, en la misma sección y aula. No es posible combinar dos secciones del mismo curso.</p></div>
 
+  <div class="section-filter" *ngIf="seccionesDisponibles.length">
+    <div><small>SECCIONES DISPONIBLES</small><strong>Elija una sección para revisar sus cursos</strong><p>Puede cambiar de sección y combinar cursos de A, B o C. Sus selecciones se conservan y el sistema seguirá validando los cruces de horario.</p></div>
+    <nav aria-label="Secciones disponibles"><button type="button" *ngFor="let seccion of seccionesDisponibles" [class.active]="seccionFiltro === seccion" (click)="seleccionarSeccion(seccion)"><span>SECCIÓN</span><strong>{{ seccion }}</strong><small>{{ cantidadSeccion(seccion) }} disponible(s)</small></button></nav>
+  </div>
+
   <div class="enrollment-layout">
     <div class="table-wrap"><table><thead><tr><th></th><th>Curso</th><th>Ciclo</th><th>Sección</th><th>Docente</th><th>Horario disponible</th><th>Vacantes</th><th>Situación</th></tr></thead><tbody>
-      <tr *ngFor="let oferta of ofertas" [class.blocked]="!oferta.disponible" [class.selected]="seleccionadas.has(oferta.id_oferta)"><td><input type="checkbox" [disabled]="!oferta.disponible" [checked]="seleccionadas.has(oferta.id_oferta)" (change)="alternarOferta(oferta.id_oferta, $any($event.target).checked)"></td><td><strong>{{ oferta.cod_curso }}</strong> · {{ oferta.den_curso }}</td><td>{{ semestreRomano(oferta.semestre) }}</td><td>{{ oferta.cod_seccion }}</td><td>{{ oferta.docente_nombre }}</td><td class="schedule-cell">{{ oferta.horario_resumen }}</td><td>{{ oferta.vacantes_disponibles }} / {{ oferta.vacantes }}</td><td><span class="available" *ngIf="oferta.disponible">Disponible</span><span class="reason" *ngIf="!oferta.disponible">{{ oferta.motivo }}</span></td></tr>
-      <tr *ngIf="!ofertas.length"><td colspan="8" class="empty">No existen cursos ofertados para este período.</td></tr>
+      <tr *ngFor="let oferta of ofertasFiltradas" [class.blocked]="!oferta.disponible" [class.selected]="seleccionadas.has(oferta.id_oferta)"><td><input type="checkbox" [disabled]="!oferta.disponible" [checked]="seleccionadas.has(oferta.id_oferta)" (change)="alternarOferta(oferta.id_oferta, $any($event.target).checked)"></td><td><strong>{{ oferta.cod_curso }}</strong> · {{ oferta.den_curso }}</td><td>{{ semestreRomano(oferta.semestre) }}</td><td>{{ oferta.cod_seccion }}</td><td>{{ oferta.docente_nombre }}</td><td class="schedule-cell">{{ oferta.horario_resumen }}</td><td>{{ oferta.vacantes_disponibles }} / {{ oferta.vacantes }}</td><td><span class="available" *ngIf="oferta.disponible">Disponible</span><span class="reason" *ngIf="!oferta.disponible">{{ oferta.motivo }}</span></td></tr>
+      <tr *ngIf="!ofertasFiltradas.length"><td colspan="8" class="empty">No existen cursos ofertados para esta sección y período.</td></tr>
     </tbody></table></div>
 
     <aside class="selection-summary">

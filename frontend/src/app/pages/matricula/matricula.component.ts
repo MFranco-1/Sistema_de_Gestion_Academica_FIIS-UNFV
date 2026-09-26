@@ -12,6 +12,7 @@ export class MatriculaComponent implements OnInit {
   matriculas: MatriculaResumen[] = [];
   seleccionadas = new Set<number>();
   periodoSeleccionado = '';
+  seccionFiltro = '';
   mensaje = '';
   error = '';
   cargando = true;
@@ -52,6 +53,8 @@ export class MatriculaComponent implements OnInit {
     this.api.getOfertasEstudiante(this.estudiante.cod_estudiante, this.periodoSeleccionado).subscribe({
       next: data => {
         this.ofertas = data;
+        const secciones = this.seccionesDisponibles;
+        if (!secciones.includes(this.seccionFiltro)) this.seccionFiltro = secciones[0] || '';
         this.api.getPrematricula(this.estudiante!.cod_estudiante).subscribe(guardada => {
           if (guardada.cod_periodo === this.periodoSeleccionado) {
             const validas = new Set(data.map(item => item.id_oferta));
@@ -69,6 +72,10 @@ export class MatriculaComponent implements OnInit {
       if (elegida) this.ofertas.filter(item => item.cod_curso === elegida.cod_curso).forEach(item => this.seleccionadas.delete(item.id_oferta));
       this.seleccionadas.add(id);
     } else this.seleccionadas.delete(id);
+  }
+
+  seleccionarSeccion(seccion: string): void {
+    this.seccionFiltro = seccion;
   }
 
   guardarPrematricula(): void {
@@ -202,6 +209,17 @@ export class MatriculaComponent implements OnInit {
   }
   get ofertasSeleccionadas(): OfertaCurso[] {
     return this.ofertas.filter(item => this.seleccionadas.has(item.id_oferta));
+  }
+  get seccionesDisponibles(): string[] {
+    return [...new Set(this.ofertas.filter(item => item.disponible).map(item => item.cod_seccion))].sort((a, b) => a.localeCompare(b));
+  }
+  get ofertasFiltradas(): OfertaCurso[] {
+    return this.ofertas
+      .filter(item => !this.seccionFiltro || item.cod_seccion === this.seccionFiltro)
+      .sort((a, b) => a.semestre - b.semestre || a.cod_curso.localeCompare(b.cod_curso) || a.cod_seccion.localeCompare(b.cod_seccion));
+  }
+  cantidadSeccion(seccion: string): number {
+    return this.ofertas.filter(item => item.cod_seccion === seccion && item.disponible).length;
   }
   private mostrarError(error: HttpErrorResponse): void {
     this.mensaje = '';

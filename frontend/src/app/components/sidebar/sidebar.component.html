@@ -1,26 +1,26 @@
-<aside class="sidebar">
+<aside class="sidebar" [class.collapsed]="contraida">
   <div class="institution"><img src="assets/branding/logo_fiis.png" alt="Facultad de Ingeniería Industrial y de Sistemas - UNFV"></div>
-  <div class="system-name">Sistema de Gestión Académica</div>
+  <div class="system-name"><span>Sistema de Gestión Académica</span><button type="button" (click)="alternar.emit()" [attr.aria-label]="contraida ? 'Expandir menú' : 'Contraer menú'" [title]="contraida ? 'Expandir menú' : 'Contraer menú'"><span class="material-icons-outlined">{{ contraida ? 'chevron_right' : 'chevron_left' }}</span></button></div>
   <nav class="menu" aria-label="Menú principal">
     <ng-container *ngIf="auth.puedeAlguno('GESTION_CURRICULAR','PLANA_DOCENTE','MANTENIMIENTO_ACADEMICO','GESTION_ESTUDIANTES','GESTION_USUARIOS','GESTION_PERFILES','GESTION_MATRICULAS')">
       <div class="menu-label">GESTIÓN CURRICULAR</div>
-      <a *ngIf="auth.puede('GESTION_CURRICULAR')" class="menu-item" routerLink="/catalog" fragment="planes"><span class="material-icons-outlined">account_balance</span>Planes de estudio</a>
-      <a *ngIf="auth.puede('GESTION_CURRICULAR')" class="menu-item" routerLink="/catalog" fragment="cursos"><span class="material-icons-outlined">menu_book</span>Cursos y prerrequisitos</a>
-      <a *ngIf="auth.puede('GESTION_CURRICULAR')" class="menu-item" routerLink="/catalog" fragment="programacion"><span class="material-icons-outlined">calendar_month</span>Programación académica</a>
+      <a *ngIf="auth.puede('GESTION_CURRICULAR')" class="menu-item" routerLink="/catalog" fragment="planes" title="Planes de estudio"><span class="material-icons-outlined">account_balance</span><span class="item-text">Planes de estudio</span></a>
+      <a *ngIf="auth.puede('GESTION_CURRICULAR')" class="menu-item" routerLink="/catalog" fragment="cursos" title="Cursos y prerrequisitos"><span class="material-icons-outlined">menu_book</span><span class="item-text">Cursos y prerrequisitos</span></a>
+      <a *ngIf="auth.puede('GESTION_CURRICULAR')" class="menu-item" routerLink="/catalog" fragment="programacion" title="Programación académica"><span class="material-icons-outlined">calendar_month</span><span class="item-text">Programación académica</span></a>
       <div class="menu-label second">ADMINISTRACIÓN</div>
-      <a *ngIf="auth.puede('PLANA_DOCENTE')" class="menu-item" routerLink="/docentes" routerLinkActive="active"><span class="material-icons-outlined">groups</span>Plana docente</a>
-      <a *ngIf="auth.puedeAlguno('MANTENIMIENTO_ACADEMICO','PLANA_DOCENTE')" class="menu-item" routerLink="/admin/horarios" routerLinkActive="active"><span class="material-icons-outlined">schedule</span>Gestión de horarios</a>
-      <a *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')" class="menu-item" routerLink="/mantenimiento" routerLinkActive="active"><span class="material-icons-outlined">settings</span>Mantenimiento académico</a>
-      <a *ngIf="auth.puede('GESTION_ESTUDIANTES')" class="menu-item" routerLink="/mantenimiento" fragment="estudiantes"><span class="material-icons-outlined">school</span>Estudiantes</a>
-      <a *ngIf="auth.puede('GESTION_MATRICULAS')" class="menu-item" routerLink="/admin/matriculas" routerLinkActive="active"><span class="material-icons-outlined">assignment</span>Matrículas e historial</a>
-      <a *ngIf="auth.puede('GESTION_USUARIOS')" class="menu-item" routerLink="/admin/usuarios" routerLinkActive="active"><span class="material-icons-outlined">manage_accounts</span>Usuarios</a>
-      <a *ngIf="auth.puede('GESTION_PERFILES')" class="menu-item" routerLink="/admin/perfiles" routerLinkActive="active"><span class="material-icons-outlined">admin_panel_settings</span>Perfiles</a>
+      <a *ngIf="auth.puede('PLANA_DOCENTE')" class="menu-item" routerLink="/docentes" routerLinkActive="active" title="Plana docente"><span class="material-icons-outlined">groups</span><span class="item-text">Plana docente</span></a>
+      <a *ngIf="auth.puedeAlguno('MANTENIMIENTO_ACADEMICO','PLANA_DOCENTE')" class="menu-item" routerLink="/admin/horarios" routerLinkActive="active" title="Gestión de horarios"><span class="material-icons-outlined">schedule</span><span class="item-text">Gestión de horarios</span></a>
+      <a *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')" class="menu-item" routerLink="/mantenimiento" routerLinkActive="active" title="Mantenimiento académico"><span class="material-icons-outlined">settings</span><span class="item-text">Mantenimiento académico</span></a>
+      <a *ngIf="auth.puede('GESTION_ESTUDIANTES')" class="menu-item" routerLink="/mantenimiento" fragment="estudiantes" title="Estudiantes"><span class="material-icons-outlined">school</span><span class="item-text">Estudiantes</span></a>
+      <a *ngIf="auth.puede('GESTION_MATRICULAS')" class="menu-item" routerLink="/admin/matriculas" routerLinkActive="active" title="Matrículas e historial"><span class="material-icons-outlined">assignment</span><span class="item-text">Matrículas e historial</span></a>
+      <a *ngIf="auth.puede('GESTION_USUARIOS')" class="menu-item" routerLink="/admin/usuarios" routerLinkActive="active" title="Usuarios"><span class="material-icons-outlined">manage_accounts</span><span class="item-text">Usuarios</span></a>
+      <a *ngIf="auth.puede('GESTION_PERFILES')" class="menu-item" routerLink="/admin/perfiles" routerLinkActive="active" title="Perfiles"><span class="material-icons-outlined">admin_panel_settings</span><span class="item-text">Perfiles</span></a>
     </ng-container>
     <ng-container *ngIf="auth.esEstudiante">
       <div class="menu-label">PORTAL DEL ESTUDIANTE</div>
-      <a class="menu-item" routerLink="/matricula" routerLinkActive="active"><span class="material-icons-outlined">how_to_reg</span>Mi matrícula</a>
-      <a class="menu-item" routerLink="/historial" routerLinkActive="active"><span class="material-icons-outlined">history</span>Historial de matrículas</a>
-      <a class="menu-item" routerLink="/mi-malla" routerLinkActive="active"><span class="material-icons-outlined">account_tree</span>Mi malla</a>
+      <a class="menu-item" routerLink="/matricula" routerLinkActive="active" title="Mi matrícula"><span class="material-icons-outlined">how_to_reg</span><span class="item-text">Mi matrícula</span></a>
+      <a class="menu-item" routerLink="/historial" routerLinkActive="active" title="Historial de matrículas"><span class="material-icons-outlined">history</span><span class="item-text">Historial de matrículas</span></a>
+      <a class="menu-item" routerLink="/mi-malla" routerLinkActive="active" title="Mi malla"><span class="material-icons-outlined">account_tree</span><span class="item-text">Mi malla</span></a>
     </ng-container>
   </nav>
   <div class="contact"><strong>FIIS – UNFV</strong><span>Av. Óscar R. Benavides N.° 450</span><span>Lima, Perú</span></div>

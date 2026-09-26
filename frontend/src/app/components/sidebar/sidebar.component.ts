@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, EventEmitter, Input, Output } from '@angular/core';
 import { AuthService } from '../../services/auth.service';
 
 @Component({
@@ -7,5 +7,7 @@ import { AuthService } from '../../services/auth.service';
   styleUrls: ['./sidebar.component.css']
 })
 export class SidebarComponent {
+  @Input() contraida = false;
+  @Output() alternar = new EventEmitter<void>();
   constructor(public auth: AuthService) {}
 }

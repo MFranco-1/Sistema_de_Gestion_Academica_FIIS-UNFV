@@ -1,6 +1,7 @@
 .app-container { display:flex; height:100vh; overflow:hidden; background:var(--bg-main); }
-.sidebar-container { width:250px; flex-shrink:0; background:var(--bg-sidebar); display:flex; flex-direction:column; }
+.sidebar-container { width:250px; flex-shrink:0; background:var(--bg-sidebar); display:flex; flex-direction:column; transition:width .2s ease; }
+.sidebar-container.collapsed { width:76px; }
 .main-container { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
 .topbar-container { height:66px; background:#fff; border-bottom:1px solid var(--border-color); border-top:4px solid var(--unfv-gold); flex-shrink:0; position:sticky; top:0; z-index:5; }
 .content-container { width:100%; max-width:1440px; margin:0 auto; padding:26px 30px 45px; flex:1; }
-@media(max-width:800px){.sidebar-container{width:210px}.content-container{padding:20px 17px}}
+@media(max-width:800px){.sidebar-container{width:210px}.sidebar-container.collapsed{width:68px}.content-container{padding:20px 17px}}

@@ -1,6 +1,6 @@
 <div [class.app-container]="mostrarPanel">
-  <div class="sidebar-container" *ngIf="mostrarPanel">
-    <app-sidebar></app-sidebar>
+  <div class="sidebar-container" [class.collapsed]="sidebarContraida" *ngIf="mostrarPanel">
+    <app-sidebar [contraida]="sidebarContraida" (alternar)="alternarSidebar()"></app-sidebar>
   </div>
   <div [class.main-container]="mostrarPanel">
     <div class="topbar-container" *ngIf="mostrarPanel">
