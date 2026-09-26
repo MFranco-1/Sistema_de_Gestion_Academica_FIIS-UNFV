@@ -42,7 +42,7 @@
   <div class="ranking-summary" *ngIf="rankingControl as ranking">
     <div><span>ESTUDIANTES EVALUADOS</span><strong>{{ ranking.total_estudiantes }}</strong></div>
     <div><span>LÍMITE DEL TERCIO</span><strong>{{ ranking.limite_tercio }} estudiante(s)</strong></div>
-    <p>El ranking usa el último período cerrado con notas. La prematrícula permanece disponible en cualquier fase.</p>
+    <p>El ranking usa el último período regular cerrado con notas; verano no cambia la prioridad. La prematrícula permanece disponible en cualquier fase.</p>
   </div>
 
   <div class="ranking-table-wrap" *ngIf="rankingControl?.estudiantes?.length; else sinRanking">
@@ -60,7 +60,7 @@
       </tbody>
     </table>
   </div>
-  <ng-template #sinRanking><div class="empty-ranking">Aún no hay un período cerrado con notas para calcular el ranking de este ciclo.</div></ng-template>
+  <ng-template #sinRanking><div class="empty-ranking">Aún no hay un período regular cerrado con notas para calcular el ranking de este ciclo.</div></ng-template>
 </section>
 
 <section class="management-panel">

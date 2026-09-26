@@ -79,16 +79,22 @@ def read_root():
 
 
 def _sesion_dict(usuario, perfil_activo: str):
+    perfiles_habilitados = [
+        perfil for perfil in usuario.perfiles
+        if any(permiso for permiso in perfil.permisos.split(",") if permiso)
+    ]
     return {
         "id_usuario": usuario.id_usuario,
         "nombre_usuario": usuario.nombre_usuario,
         "nombre_mostrar": usuario.nombre_mostrar,
         "cod_estudiante": usuario.cod_estudiante,
         "perfil_activo": perfil_activo,
-        "perfiles": sorted(perfil.codigo for perfil in usuario.perfiles),
-        "nombres_perfiles": {perfil.codigo: perfil.nombre for perfil in usuario.perfiles},
+        "perfiles": sorted(perfil.codigo for perfil in perfiles_habilitados),
+        "nombres_perfiles": {
+            perfil.codigo: perfil.nombre for perfil in perfiles_habilitados
+        },
         "permisos": sorted({
-            permiso for perfil in usuario.perfiles if perfil.codigo == perfil_activo
+            permiso for perfil in perfiles_habilitados if perfil.codigo == perfil_activo
             for permiso in perfil.permisos.split(",") if permiso
         }),
     }
@@ -117,6 +123,9 @@ def cambiar_perfil(
     if datos.perfil not in actual.perfiles:
         raise HTTPException(status_code=403, detail="El usuario no tiene asignado ese perfil.")
     usuario = db.query(models.Usuario).filter_by(id_usuario=actual.id_usuario).one()
+    perfil = next(item for item in usuario.perfiles if item.codigo == datos.perfil)
+    if not any(permiso for permiso in perfil.permisos.split(",") if permiso):
+        raise HTTPException(status_code=403, detail="El perfil seleccionado no tiene permisos asignados.")
     return {
         "token": auth.create_token(usuario, datos.perfil),
         "usuario": _sesion_dict(usuario, datos.perfil),

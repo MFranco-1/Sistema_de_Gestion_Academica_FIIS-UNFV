@@ -227,6 +227,7 @@ def get_ranking_ciclo(
             WHERE e.cod_fac = :cod_fac AND e.cod_esc = :cod_esc
               AND e.corr_pe = :corr_pe AND e.ciclo_actual = :ciclo
               AND e.estado = 'ACTIVO' AND m.estado = 'CERRADA'
+              AND pa.tipo_periodo <> 'VERANO'
               AND pa.fecha_inicio < :fecha_objetivo
               AND md.nota_final IS NOT NULL AND md.resultado <> 'RETIRADO'
             GROUP BY e.cod_estudiante, e.apellidos_nombres,
@@ -1079,6 +1080,7 @@ def _aprobados_estudiante(db: Session, codigo: str) -> set[str]:
             .join(models.Matricula, models.Matricula.id_matricula == models.MatriculaDetalle.id_matricula)
             .filter(
                 models.Matricula.cod_estudiante == codigo,
+                models.Matricula.estado != "ANULADA",
                 models.MatriculaDetalle.resultado == "APROBADO",
             )
             .distinct()
@@ -1100,9 +1102,14 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
         fila[0] for fila in db.query(models.OfertaCurso.cod_curso)
         .join(models.MatriculaDetalle, models.MatriculaDetalle.id_oferta == models.OfertaCurso.id_oferta)
         .join(models.Matricula, models.Matricula.id_matricula == models.MatriculaDetalle.id_matricula)
-        .filter(models.Matricula.cod_estudiante == codigo,
-                models.MatriculaDetalle.resultado == "DESAPROBADO").distinct().all()
+        .filter(
+            models.Matricula.cod_estudiante == codigo,
+            models.Matricula.estado != "ANULADA",
+            models.MatriculaDetalle.resultado == "DESAPROBADO",
+        ).distinct().all()
     }
+    # Un curso aprobado posteriormente ya no es una deuda académica.
+    desaprobados.difference_update(aprobados)
     matricula_periodo = db.query(models.Matricula).filter_by(
         cod_estudiante=codigo, cod_periodo=cod_periodo,
     ).first()
@@ -1308,6 +1315,9 @@ def crear_matricula(
             .join(models.HorarioCabecera, models.HorarioCabecera.id_horario == models.HorarioCurso.id_horario)
             .filter(
                 models.HorarioCabecera.cod_periodo == datos.cod_periodo,
+                models.HorarioCabecera.cod_fac == estudiante.cod_fac,
+                models.HorarioCabecera.cod_esc == estudiante.cod_esc,
+                models.HorarioCabecera.corr_pe == estudiante.corr_pe,
                 models.HorarioCurso.cod_curso == item["cod_curso"],
                 models.HorarioCurso.cod_seccion == item["cod_seccion"],
             ).all()
@@ -1349,9 +1359,19 @@ def crear_matricula(
 def get_matriculas_estudiante(db: Session, codigo: str):
     if not db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first():
         raise HTTPException(status_code=404, detail="El estudiante no existe.")
-    matriculas = db.query(models.Matricula).filter_by(cod_estudiante=codigo).order_by(
-        models.Matricula.cod_periodo.desc(),
-    ).all()
+    matriculas = (
+        db.query(models.Matricula)
+        .join(
+            models.PeriodoAcademico,
+            models.PeriodoAcademico.cod_periodo == models.Matricula.cod_periodo,
+        )
+        .filter(models.Matricula.cod_estudiante == codigo)
+        .order_by(
+            models.PeriodoAcademico.fecha_inicio.desc(),
+            models.Matricula.id_matricula.desc(),
+        )
+        .all()
+    )
     resultado = []
     for matricula in matriculas:
         detalles = (
@@ -1530,10 +1550,19 @@ def autenticar(db: Session, nombre_usuario: str, clave: str):
     ).first()
     if not usuario or not usuario.activo or not auth.verify_password(clave, usuario.clave_hash):
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
-    perfiles = sorted(perfil.codigo for perfil in usuario.perfiles)
-    if not perfiles:
-        raise HTTPException(status_code=403, detail="El usuario no tiene perfiles asignados.")
-    perfil_activo = auth.PERFIL_ADMIN if auth.PERFIL_ADMIN in perfiles else perfiles[0]
+    perfiles_disponibles = sorted(
+        (
+            perfil for perfil in usuario.perfiles
+            if any(permiso for permiso in perfil.permisos.split(",") if permiso)
+        ),
+        key=lambda perfil: perfil.codigo,
+    )
+    if not perfiles_disponibles:
+        raise HTTPException(status_code=403, detail="El usuario no tiene perfiles con permisos asignados.")
+    perfil_activo = next(
+        (perfil.codigo for perfil in perfiles_disponibles if perfil.codigo == auth.PERFIL_ADMIN),
+        perfiles_disponibles[0].codigo,
+    )
     return usuario, perfil_activo
 
 

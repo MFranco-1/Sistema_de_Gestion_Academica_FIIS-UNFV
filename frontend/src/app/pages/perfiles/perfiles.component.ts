@@ -31,6 +31,12 @@ export class PerfilesComponent implements OnInit {
   editar(perfil: PerfilAdministracion): void { this.cancelar(); this.editando = perfil; this.nombre = perfil.nombre; this.codigo = perfil.codigo; this.permisos = new Set(perfil.permisos); }
   alternarPermiso(codigo: string, activo: boolean): void { activo ? this.permisos.add(codigo) : this.permisos.delete(codigo); }
   guardar(): void {
+    this.mensaje = '';
+    this.error = '';
+    if (!this.permisos.size) {
+      this.error = 'Seleccione al menos un permiso para que el perfil pueda ingresar al sistema.';
+      return;
+    }
     const request = this.creando
       ? this.api.crearPerfil(this.codigo.trim().toUpperCase(), this.nombre, [...this.permisos])
       : this.api.editarPerfil(this.editando!.id_perfil, this.nombre, [...this.permisos]);
@@ -40,7 +46,7 @@ export class PerfilesComponent implements OnInit {
     if (!confirm(`¿Eliminar el perfil ${perfil.nombre}?`)) return;
     this.api.eliminarPerfil(perfil.id_perfil).subscribe({ next: data => { this.mensaje = data.mensaje; this.cargar(); }, error: e => this.mostrarError(e) });
   }
-  cancelar(): void { this.editando = undefined; this.creando = false; this.codigo = ''; this.nombre = ''; this.permisos.clear(); }
+  cancelar(): void { this.editando = undefined; this.creando = false; this.codigo = ''; this.nombre = ''; this.permisos = new Set<string>(); }
   nombrePermiso(codigo: string): string { return this.permisosDisponibles.find(p => p.codigo === codigo)?.nombre || codigo; }
   icono(perfil: PerfilAdministracion): string { return perfil.codigo === 'ADMINISTRADOR' ? 'admin_panel_settings' : perfil.codigo === 'ESTUDIANTE' ? 'school' : 'badge'; }
   private mostrarError(error: HttpErrorResponse): void { this.mensaje = ''; this.error = error.error?.detail || 'No se pudo completar la operación.'; }

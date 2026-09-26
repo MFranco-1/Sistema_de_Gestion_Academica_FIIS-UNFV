@@ -29,7 +29,7 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Prematrícula estudiantil persistente con vista semanal institucional; funciona como guía y no altera la matrícula oficial.
 - La matrícula muestra un resumen lateral de cursos y créditos, solicita confirmación y permite descargar una constancia PDF por período.
 - El historial presenta prácticas (40 %), parcial (30 %), examen final (30 %), promedio final, promedio aritmético y promedio ponderado.
-- Orden de mérito por ciclo y tercio superior calculado desde el último período cerrado con notas.
+- Orden de mérito por ciclo y tercio superior calculado desde el último período regular cerrado con notas; verano no altera la prioridad.
 - Apertura de matrícula por período, malla y ciclo en tres fases: cerrada, solo tercio superior o todos; la prematrícula sigue disponible.
 - Los datos demostrativos incluyen cohortes en todos los ciclos y en las secciones A, B y C, con matrículas e historiales completos; las notas finales antiguas se conservan y completan sus componentes faltantes.
 - Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.

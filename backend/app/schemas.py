@@ -590,7 +590,7 @@ class PerfilAdministracion(BaseModel):
 
 class PerfilUpdate(BaseModel):
     nombre: str = Field(min_length=3, max_length=50)
-    permisos: list[str]
+    permisos: list[str] = Field(min_length=1)
 
     @field_validator("nombre")
     @classmethod

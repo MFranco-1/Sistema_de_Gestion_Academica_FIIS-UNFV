@@ -101,16 +101,20 @@ def get_current_user(
     user = db.query(models.Usuario).filter_by(id_usuario=payload["sub"], activo=True).first()
     if not user:
         raise HTTPException(status_code=401, detail="El usuario no está disponible.")
-    perfiles = sorted(perfil.codigo for perfil in user.perfiles)
+    perfiles_habilitados = [
+        perfil for perfil in user.perfiles
+        if any(permiso for permiso in perfil.permisos.split(",") if permiso)
+    ]
+    perfiles = sorted(perfil.codigo for perfil in perfiles_habilitados)
     perfil_activo = payload.get("perfil")
     if perfil_activo not in perfiles:
         raise HTTPException(status_code=403, detail="El perfil activo ya no está asignado.")
-    perfil_obj = next(perfil for perfil in user.perfiles if perfil.codigo == perfil_activo)
+    perfil_obj = next(perfil for perfil in perfiles_habilitados if perfil.codigo == perfil_activo)
     permisos = sorted({item for item in perfil_obj.permisos.split(",") if item})
     return UsuarioActual(
         user.id_usuario, user.nombre_usuario, user.nombre_mostrar,
         user.cod_estudiante, perfil_activo, perfiles,
-        {perfil.codigo: perfil.nombre for perfil in user.perfiles},
+        {perfil.codigo: perfil.nombre for perfil in perfiles_habilitados},
         permisos,
     )
 
