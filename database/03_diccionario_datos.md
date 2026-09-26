@@ -6,7 +6,7 @@ El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres d
 |---|---|---|---|
 | `facultad` | Catálogo de facultades. | `cod_fac` | Denominación única. |
 | `escuela` | Escuelas de una facultad. | `cod_fac, cod_esc` | Nombre único dentro de la facultad. |
-| `docente` | Plana docente por escuela. | `cod_fac, cod_esc, cod_docente` | Docente asociado a una escuela existente. |
+| `docente` | Plana docente por escuela. | `cod_fac, cod_esc, cod_docente` | Docente asociado a una escuela existente; código y nombre no repetidos dentro de la escuela. No se elimina si conserva cursos asignados. |
 | `plan_estudio` | Mallas curriculares históricas y vigentes. | `cod_fac, cod_esc, corr_pe` | Año único por escuela; fechas consistentes. |
 | `curso` | Cursos de cada malla. | `cod_fac, cod_esc, corr_pe, cod_curso` | Código no repetido en la malla; semestre 1–10; créditos positivos; horas no negativas; tipo obligatorio o electivo. |
 | `curso_prerequisito` | Relación de prerrequisitos dentro de una malla. | `cod_fac, cod_esc, corr_pe, cod_curso, cod_curso_prerequisito` | No admite autorreferencia; ambas referencias pertenecen a la misma malla. La API exige que el requisito sea de un semestre anterior. |
@@ -15,7 +15,7 @@ El modelo contiene diecisiete tablas. No existe `plan_semestre`: los semestres d
 | `horario_detalle` | Semestres habilitados en una cabecera. | `id_horario, semestre_corr` | Semestre 1–10. |
 | `horario_curso` | Sesiones de cursos. | `id_horario, semestre_corr, cod_curso, cod_seccion, tipo_sesion, dia_semana, hora_inicio` | Curso de la misma malla; hora final posterior; tipos T/P; días válidos. La API usa bloques de 50 minutos, limita las horas T/P a la malla, aplica el turno del ciclo y rechaza cruces de aula y sección. |
 | `estudiante` | Datos del estudiante y su situación curricular. | `cod_estudiante` | Código institucional obligatorio de exactamente 10 dígitos; DNI y correo únicos; malla existente; ciclo 1–10; estado válido; prematrícula persistente como guía. |
-| `oferta_curso` | Cursos abiertos por período, malla y sección. | `id_oferta` | Una sección no se repite en el mismo período; vacantes positivas; docente opcional por curso y sección. |
+| `oferta_curso` | Cursos abiertos por período, malla y sección. | `id_oferta` | Una sección no se repite en el mismo período; vacantes positivas; docente opcional por curso y sección. Los períodos regulares se preparan con A/B/C; en verano cada oferta se activa expresamente según demanda. |
 | `matricula` | Cabecera de matrícula por estudiante y período. | `id_matricula` | Una matrícula por estudiante y período; conserva la malla y ciclo utilizados. |
 | `matricula_detalle` | Cursos, notas y resultados de una matrícula. | `id_matricula, id_oferta` | Prácticas 40 %, parcial 30 % y examen final 30 %, todas de 0 a 20; `nota_final` es el promedio calculado. Resultado matriculado, aprobado, desaprobado o retirado. |
 | `perfil` | Catálogo de perfiles de acceso. | `id_perfil` | Código y nombre únicos; incluye Administrador, Estudiante, Jefe de departamento, Director de escuela y Administración. |

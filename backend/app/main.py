@@ -139,6 +139,33 @@ def read_docentes(
     return crud.get_docentes(db, buscar, categoria)
 
 
+@app.post("/docentes/", response_model=schemas.Docente, status_code=status.HTTP_201_CREATED)
+def create_docente(
+    datos: schemas.DocenteCreate,
+    db: Session = Depends(get_db),
+    _: auth.UsuarioActual = Depends(auth.require_permission("PLANA_DOCENTE")),
+):
+    return crud.crear_docente(db, datos)
+
+
+@app.put("/docentes/{cod_docente}", response_model=schemas.Docente)
+def update_docente(
+    cod_docente: str, datos: schemas.DocenteUpdate, cod_fac: int = 1, cod_esc: int = 1,
+    db: Session = Depends(get_db),
+    _: auth.UsuarioActual = Depends(auth.require_permission("PLANA_DOCENTE")),
+):
+    return crud.editar_docente(db, cod_docente, datos, cod_fac, cod_esc)
+
+
+@app.delete("/docentes/{cod_docente}", response_model=schemas.Mensaje)
+def delete_docente(
+    cod_docente: str, cod_fac: int = 1, cod_esc: int = 1,
+    db: Session = Depends(get_db),
+    _: auth.UsuarioActual = Depends(auth.require_permission("PLANA_DOCENTE")),
+):
+    return crud.eliminar_docente(db, cod_docente, cod_fac, cod_esc)
+
+
 @app.get("/planes/", response_model=List[schemas.PlanEstudio])
 def read_planes(cod_fac: int | None = None, cod_esc: int | None = None, db: Session = Depends(get_db)):
     return crud.get_planes(db, cod_fac, cod_esc)
@@ -157,8 +184,8 @@ def read_cursos(
 
 
 @app.get("/periodos/", response_model=List[schemas.PeriodoAcademico])
-def read_periodos(db: Session = Depends(get_db)):
-    return crud.get_periodos(db)
+def read_periodos(solo_activos: bool = False, db: Session = Depends(get_db)):
+    return crud.get_periodos(db, solo_activos)
 
 
 @app.get("/programacion/", response_model=List[schemas.ProgramacionHorario])

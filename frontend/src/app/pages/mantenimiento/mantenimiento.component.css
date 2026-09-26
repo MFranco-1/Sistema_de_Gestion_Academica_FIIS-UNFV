@@ -9,9 +9,6 @@
 .notice { margin-bottom:18px; padding:12px; border:1px solid; font-size:13px; }
 .notice.success { color:#176b49; background:#edf8f2; border-color:#b9ddca; }
 .notice.error { color:#9d2525; background:#fff1f1; border-color:#e9c2c2; }
-.section-nav { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
-.section-nav a { padding:9px 13px; background:#fff; border:1px solid var(--border-color); border-bottom:2px solid var(--unfv-gold); color:var(--unfv-maroon); font-size:11px; font-weight:700; text-decoration:none; }
-.section-nav a:hover { background:#f8f2f0; }
 .section-note { padding:11px 17px; background:#fbf7ed; border-bottom:1px solid #e9dfc5; color:#695b3f; font-size:11px; line-height:1.45; }
 .maintenance-section { margin-bottom:24px; background:#fff; border:1px solid var(--border-color); }
 .section-heading { padding:13px 17px; color:#fff; background:var(--unfv-maroon); border-bottom:3px solid var(--unfv-gold); }

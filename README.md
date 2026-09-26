@@ -7,12 +7,13 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Filtros encadenados desde PostgreSQL: malla → semestre → cursos → detalle.
 - Detalle del curso con créditos, horas, tipo, prerrequisitos y cursos dependientes.
 - Resumen SQL por semestre: cursos, créditos, horas, tipos y presencia de prerrequisitos.
-- Consulta de programación académica y plana docente.
+- Consulta de programación académica y CRUD de la plana docente.
 - Mantenimiento transaccional de cursos, prerrequisitos y sesiones de horario.
 - CRUD de estudiantes y asignación de malla y ciclo académico.
 - Matrícula validada por oferta anual, período I/II/verano, historial y prerrequisitos.
 - Portal estudiantil con Mi matrícula, Historial y Mi malla; muestra créditos y prerrequisitos aplicables.
-- Períodos académicos futuros y ofertas generados de forma incremental, incluyendo verano 2024.
+- El alumno ve únicamente el período regular vigente o el siguiente compatible con la paridad de su ciclo.
+- Programación completa A/B/C para el período vigente y el siguiente regular; verano se abre por curso y sección solo cuando existe demanda.
 - Cierre de notas en lote: 0–10 desaprobado, 11–20 aprobado y avance automático de ciclo cuando corresponde.
 - Registro de notas y resultados para cursos aprobados, desaprobados o retirados.
 - Login institucional con perfiles Administrador y Estudiante, cambio de perfil dentro del panel y permisos por endpoint.
@@ -127,6 +128,7 @@ No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render 
 - `GET /cursos/{cod_curso}/detalle?corr_pe=2`
 - `GET /resumen-semestre/?corr_pe=2&semestre=6`
 - `GET /periodos/`
+- `GET /periodos/?solo_activos=true`
 - `GET /horarios/?corr_pe=2&semestre=6&cod_periodo=2026-II`
 - `GET /programacion/?corr_pe=2&semestre=6&cod_periodo=2026-II`
 - `GET /docentes/`
@@ -142,6 +144,9 @@ No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render 
 
 ### Mantenimiento
 
+- `POST /docentes/`
+- `PUT /docentes/{cod_docente}`
+- `DELETE /docentes/{cod_docente}`
 - `POST /cursos/`
 - `PUT /cursos/{cod_curso}?corr_pe=...`
 - `DELETE /cursos/{cod_curso}?corr_pe=...`
@@ -181,4 +186,4 @@ Solo existen dos archivos SQL: el esquema consolidado y las consultas demostrati
 
 ## Datos académicos incluidos
 
-Se conservan las mallas 2010 y 2019, sus cursos, créditos y prerrequisitos, la plana docente y el horario demostrativo. También se incluyen períodos 2024–2026, ofertas regulares por paridad de ciclo, ofertas de verano y estudiantes demostrativos distribuidos entre los ciclos I y X. El estudiante de sexto ciclo incluye un curso aprobado y otro desaprobado.
+Se conservan las mallas 2010 y 2019, sus cursos, créditos y prerrequisitos, la plana docente y los horarios. También se incluyen períodos desde 2024, ofertas regulares A/B/C y estudiantes demostrativos distribuidos entre los ciclos I y X. Las ofertas de verano no se abren masivamente: el administrador las habilita según demanda desde Gestión de horarios.

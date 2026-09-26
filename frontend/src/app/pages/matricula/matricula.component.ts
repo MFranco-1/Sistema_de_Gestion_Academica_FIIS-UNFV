@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth.service';
 @Component({ selector: 'app-matricula', templateUrl: './matricula.component.html', styleUrls: ['./matricula.component.css'] })
 export class MatriculaComponent implements OnInit {
   estudiante?: Estudiante;
+  private periodosBase: PeriodoAcademico[] = [];
   periodos: PeriodoAcademico[] = [];
   ofertas: OfertaCurso[] = [];
   matriculas: MatriculaResumen[] = [];
@@ -27,9 +28,8 @@ export class MatriculaComponent implements OnInit {
     this.cargarFicha();
     this.api.getPeriodos().subscribe({
       next: data => {
-        this.periodos = data;
-        this.periodoSeleccionado = data.find(p => p.activo)?.cod_periodo ?? data[0]?.cod_periodo ?? '';
-        this.cargarOfertas();
+        this.periodosBase = data;
+        this.actualizarPeriodosMatricula();
       },
       error: error => this.mostrarError(error)
     });
@@ -41,7 +41,7 @@ export class MatriculaComponent implements OnInit {
         this.estudiante = estudiante;
         this.fotoPerfil = localStorage.getItem(`fiis_foto_${estudiante.cod_estudiante}`) || '';
         this.cargando = false;
-        this.cargarOfertas();
+        this.actualizarPeriodosMatricula();
       },
       error: error => { this.cargando = false; this.mostrarError(error); }
     });
@@ -64,6 +64,28 @@ export class MatriculaComponent implements OnInit {
       },
       error: error => this.mostrarError(error)
     });
+  }
+
+  private actualizarPeriodosMatricula(): void {
+    if (!this.estudiante || !this.periodosBase.length) return;
+    const tipoCorrespondiente = this.estudiante.ciclo_actual % 2 ? 'I' : 'II';
+    const activo = this.periodosBase.find(periodo => periodo.activo);
+    const regulares = this.periodosBase
+      .filter(periodo => periodo.tipo_periodo === tipoCorrespondiente)
+      .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
+    const correspondiente = regulares.find(periodo => periodo.activo)
+      || (activo ? regulares.find(periodo => periodo.fecha_inicio > activo.fecha_inicio) : undefined)
+      || regulares.find(periodo => periodo.fecha_fin >= new Date().toISOString().slice(0, 10))
+      || regulares[regulares.length - 1];
+    const veranoActivo = this.periodosBase.find(periodo => periodo.activo && periodo.tipo_periodo === 'VERANO');
+    this.periodos = [veranoActivo, correspondiente]
+      .filter((periodo, indice, lista): periodo is PeriodoAcademico =>
+        !!periodo && lista.findIndex(item => item?.cod_periodo === periodo.cod_periodo) === indice
+      );
+    if (!this.periodos.some(periodo => periodo.cod_periodo === this.periodoSeleccionado)) {
+      this.periodoSeleccionado = this.periodos[0]?.cod_periodo || '';
+    }
+    this.cargarOfertas();
   }
 
   alternarOferta(id: number, seleccionada: boolean): void {
@@ -211,7 +233,7 @@ export class MatriculaComponent implements OnInit {
     return this.ofertas.filter(item => this.seleccionadas.has(item.id_oferta));
   }
   get seccionesDisponibles(): string[] {
-    return [...new Set(this.ofertas.filter(item => item.disponible).map(item => item.cod_seccion))].sort((a, b) => a.localeCompare(b));
+    return [...new Set(this.ofertas.map(item => item.cod_seccion))].sort((a, b) => a.localeCompare(b));
   }
   get ofertasFiltradas(): OfertaCurso[] {
     return this.ofertas
@@ -219,10 +241,10 @@ export class MatriculaComponent implements OnInit {
       .sort((a, b) => a.semestre - b.semestre || a.cod_curso.localeCompare(b.cod_curso) || a.cod_seccion.localeCompare(b.cod_seccion));
   }
   cantidadSeccion(seccion: string): number {
-    return this.ofertas.filter(item => item.cod_seccion === seccion && item.disponible).length;
+    return this.ofertas.filter(item => item.cod_seccion === seccion).length;
   }
   get totalOfertasDisponibles(): number {
-    return this.ofertas.filter(item => item.disponible).length;
+    return this.ofertas.length;
   }
   private mostrarError(error: HttpErrorResponse): void {
     this.mensaje = '';

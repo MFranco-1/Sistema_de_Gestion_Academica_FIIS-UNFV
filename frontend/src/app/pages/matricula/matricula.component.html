@@ -29,7 +29,7 @@
 
   <div class="section-filter" *ngIf="seccionesDisponibles.length">
     <div><small>VISTA POR SECCIONES</small><strong>Vea todos los cursos o solamente una sección</strong><p>Puede seleccionar cursos de A, cambiar a B o C y continuar seleccionando. La prematrícula conserva todo y valida el horario combinado.</p></div>
-    <nav aria-label="Filtro por secciones"><button type="button" [class.active]="seccionFiltro === 'TODAS'" (click)="seleccionarSeccion('TODAS')"><span>VER</span><strong class="all-sections">TODAS</strong><small>{{ totalOfertasDisponibles }} disponible(s)</small></button><button type="button" *ngFor="let seccion of seccionesDisponibles" [class.active]="seccionFiltro === seccion" (click)="seleccionarSeccion(seccion)"><span>SOLO</span><strong>{{ seccion }}</strong><small>Sección {{ seccion }} · {{ cantidadSeccion(seccion) }}</small></button></nav>
+    <nav aria-label="Filtro por secciones"><button type="button" [class.active]="seccionFiltro === 'TODAS'" (click)="seleccionarSeccion('TODAS')"><span>VER</span><strong class="all-sections">TODAS</strong><small>{{ totalOfertasDisponibles }} curso(s)</small></button><button type="button" *ngFor="let seccion of seccionesDisponibles" [class.active]="seccionFiltro === seccion" (click)="seleccionarSeccion(seccion)"><span>SOLO</span><strong>{{ seccion }}</strong><small>Sección {{ seccion }} · {{ cantidadSeccion(seccion) }} curso(s)</small></button></nav>
   </div>
 
   <div class="enrollment-layout">

@@ -107,9 +107,28 @@ def migrar_periodos_y_ofertas() -> None:
                 (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion, vacantes, activo)
             SELECT p.cod_periodo, c.cod_fac, c.cod_esc, c.corr_pe, c.cod_curso, 'A', 35, TRUE
             FROM periodo_academico p CROSS JOIN curso c
+            WHERE p.tipo_periodo <> 'VERANO'
             ON CONFLICT (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion)
             DO NOTHING
         """))
+        marca_verano = connection.execute(text(
+            "SELECT obj_description('oferta_curso'::regclass, 'pg_class')"
+        )).scalar()
+        if marca_verano != "verano_bajo_demanda_v1":
+            connection.execute(text("""
+                UPDATE oferta_curso AS oferta
+                SET activo = FALSE, cod_docente = NULL
+                FROM periodo_academico AS periodo
+                WHERE periodo.cod_periodo = oferta.cod_periodo
+                  AND periodo.tipo_periodo = 'VERANO'
+                  AND NOT EXISTS (
+                      SELECT 1 FROM matricula_detalle AS detalle
+                      WHERE detalle.id_oferta = oferta.id_oferta
+                  )
+            """))
+            connection.exec_driver_sql(
+                "COMMENT ON TABLE oferta_curso IS 'verano_bajo_demanda_v1'"
+            )
 
 
 def inicializar_estudiantes_primer_ciclo() -> None:
@@ -378,21 +397,37 @@ def insertar_plan(db, corr_pe, plan, cursos, prerequisitos):
 
 
 def asegurar_horarios_y_secciones(db):
-    """Abre A/B/C y genera una programación semanal idempotente para el período activo."""
+    """Abre A/B/C y programa el período regular activo y el siguiente."""
     if not db.query(models.PlanEstudio).filter_by(corr_pe=2).first():
         return
     db.flush()
     db.execute(text("""
         INSERT INTO oferta_curso
             (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion, vacantes, activo)
-        SELECT cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, s.seccion, vacantes, activo
-        FROM oferta_curso CROSS JOIN (VALUES ('B'), ('C')) AS s(seccion)
-        WHERE cod_seccion = 'A'
+        SELECT oferta_curso.cod_periodo, oferta_curso.cod_fac, oferta_curso.cod_esc,
+               oferta_curso.corr_pe, oferta_curso.cod_curso, s.seccion,
+               oferta_curso.vacantes, oferta_curso.activo
+        FROM oferta_curso
+        JOIN periodo_academico USING (cod_periodo)
+        CROSS JOIN (VALUES ('B'), ('C')) AS s(seccion)
+        WHERE cod_seccion = 'A' AND periodo_academico.tipo_periodo <> 'VERANO'
         ON CONFLICT (cod_periodo, cod_fac, cod_esc, corr_pe, cod_curso, cod_seccion) DO NOTHING
     """))
-    periodo = db.query(models.PeriodoAcademico).filter_by(activo=True).order_by(
+    periodo = db.query(models.PeriodoAcademico).filter(
+        models.PeriodoAcademico.activo.is_(True),
+        models.PeriodoAcademico.tipo_periodo != "VERANO",
+    ).order_by(
         models.PeriodoAcademico.fecha_inicio.desc(),
     ).first()
+    if not periodo:
+        activo = db.query(models.PeriodoAcademico).filter_by(activo=True).order_by(
+            models.PeriodoAcademico.fecha_inicio.desc(),
+        ).first()
+        if activo:
+            periodo = db.query(models.PeriodoAcademico).filter(
+                models.PeriodoAcademico.tipo_periodo != "VERANO",
+                models.PeriodoAcademico.fecha_inicio > activo.fecha_inicio,
+            ).order_by(models.PeriodoAcademico.fecha_inicio).first()
     if not periodo:
         return
     cabecera = db.query(models.HorarioCabecera).filter_by(
@@ -466,12 +501,55 @@ def asegurar_horarios_y_secciones(db):
                         ))
                         cursor += bloque
                         restantes -= bloque
+
+    # Deja lista también la siguiente campaña regular. Así un alumno cuyo ciclo
+    # no corresponde a la paridad del período activo puede preparar su próxima matrícula.
+    siguiente = db.query(models.PeriodoAcademico).filter(
+        models.PeriodoAcademico.tipo_periodo != "VERANO",
+        models.PeriodoAcademico.fecha_inicio > periodo.fecha_inicio,
+    ).order_by(models.PeriodoAcademico.fecha_inicio).first()
+    if siguiente:
+        cabecera_siguiente = db.query(models.HorarioCabecera).filter_by(
+            cod_periodo=siguiente.cod_periodo, cod_fac=FACULTAD,
+            cod_esc=ESCUELA, corr_pe=2,
+        ).first()
+        if not cabecera_siguiente:
+            cabecera_siguiente = models.HorarioCabecera(
+                cod_periodo=siguiente.cod_periodo, cod_fac=FACULTAD,
+                cod_esc=ESCUELA, corr_pe=2, fecha_creacion=date.today(),
+            )
+            db.add(cabecera_siguiente)
+            db.flush()
+        for semestre in range(1, 11):
+            if not db.query(models.HorarioDetalle).filter_by(
+                id_horario=cabecera_siguiente.id_horario, semestre_corr=semestre,
+            ).first():
+                db.add(models.HorarioDetalle(
+                    id_horario=cabecera_siguiente.id_horario, semestre_corr=semestre,
+                    semestre_desc=f"{nombres[semestre - 1]} semestre",
+                ))
+        db.flush()
+        if not db.query(models.HorarioCurso).filter_by(
+            id_horario=cabecera_siguiente.id_horario,
+        ).first():
+            for sesion in db.query(models.HorarioCurso).filter_by(
+                id_horario=cabecera.id_horario,
+            ).all():
+                db.add(models.HorarioCurso(
+                    id_horario=cabecera_siguiente.id_horario,
+                    semestre_corr=sesion.semestre_corr, cod_curso=sesion.cod_curso,
+                    cod_seccion=sesion.cod_seccion, tipo_sesion=sesion.tipo_sesion,
+                    cod_fac=sesion.cod_fac, cod_esc=sesion.cod_esc,
+                    corr_pe=sesion.corr_pe, dia_semana=sesion.dia_semana,
+                    hora_inicio=sesion.hora_inicio, hora_fin=sesion.hora_fin,
+                    aula=sesion.aula,
+                ))
     docentes = db.query(models.Docente).filter_by(cod_fac=FACULTAD, cod_esc=ESCUELA).order_by(
         models.Docente.cod_docente,
     ).all()
     if docentes:
         ofertas_sin_docente = db.query(models.OfertaCurso).filter_by(
-            corr_pe=2,
+            corr_pe=2, activo=True,
         ).order_by(models.OfertaCurso.cod_periodo, models.OfertaCurso.cod_curso, models.OfertaCurso.cod_seccion).all()
         for indice, oferta in enumerate(ofertas_sin_docente):
             if not oferta.cod_docente:
@@ -629,14 +707,18 @@ def insertar_periodos_y_ofertas(db):
         ("2026-II", "Semestre académico 2026-II", 2026, "II", date(2026, 8, 17), date(2026, 12, 19), True),
     ]
     for codigo, nombre, anio, tipo, inicio, fin, activo in periodos:
-        db.add(models.PeriodoAcademico(
-            cod_periodo=codigo, den_periodo=nombre, anio=anio, tipo_periodo=tipo,
-            fecha_inicio=inicio, fecha_fin=fin, activo=activo,
-        ))
+        existente = db.query(models.PeriodoAcademico).filter_by(cod_periodo=codigo).first()
+        if not existente:
+            db.add(models.PeriodoAcademico(
+                cod_periodo=codigo, den_periodo=nombre, anio=anio, tipo_periodo=tipo,
+                fecha_inicio=inicio, fecha_fin=fin, activo=activo,
+            ))
     db.flush()
 
     cursos = db.query(models.Curso).all()
     for codigo, _, _, tipo, *_ in periodos:
+        if tipo == "VERANO":
+            continue
         for item in cursos:
             db.add(models.OfertaCurso(
                 cod_periodo=codigo, cod_fac=item.cod_fac, cod_esc=item.cod_esc,

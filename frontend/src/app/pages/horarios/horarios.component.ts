@@ -1,12 +1,12 @@
 import { Component, OnInit } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { ApiService, Docente, HorarioDisponible, OfertaAdministracion, PeriodoAcademico, PlanEstudio, ProgramacionHorario } from '../../services/api.service';
+import { ApiService, Curso, Docente, HorarioDisponible, OfertaAdministracion, PeriodoAcademico, PlanEstudio, ProgramacionHorario } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
 @Component({ selector: 'app-horarios', templateUrl: './horarios.component.html', styleUrls: ['./horarios.component.css'] })
 export class HorariosComponent implements OnInit {
   planes: PlanEstudio[] = []; periodos: PeriodoAcademico[] = []; semestres: number[] = [];
-  ofertas: OfertaAdministracion[] = []; sesiones: ProgramacionHorario[] = []; horarios: HorarioDisponible[] = []; docentes: Docente[] = [];
+  ofertas: OfertaAdministracion[] = []; cursos: Curso[] = []; sesiones: ProgramacionHorario[] = []; horarios: HorarioDisponible[] = []; docentes: Docente[] = [];
   plan = 0; semestre = 0; periodo = ''; oferta?: OfertaAdministracion;
   aula = ''; teoriaDia = 'LUNES'; teoriaInicio = '08:00'; practicaDia = 'MARTES'; practicaInicio = '08:00';
   nuevaSeccion = 'D'; capacidad = 35; cursoSeccion = ''; mensaje = ''; error = '';
@@ -22,6 +22,9 @@ export class HorariosComponent implements OnInit {
   cargar(): void {
     if (!this.plan || !this.semestre || !this.periodo) return;
     this.oferta = undefined;
+    this.cursoSeccion = '';
+    this.nuevaSeccion = this.periodos.find(p => p.cod_periodo === this.periodo)?.tipo_periodo === 'VERANO' ? 'A' : 'D';
+    this.api.getCursos(this.plan, this.semestre).subscribe(data => this.cursos = data);
     this.api.getHorarios(this.plan, this.semestre, this.periodo).subscribe(data => this.horarios = data);
     this.api.getProgramacion(this.plan, this.semestre, this.periodo).subscribe(data => this.sesiones = data);
     this.api.getOfertasAdministracion(this.periodo, this.plan, this.semestre).subscribe({ next: data => this.ofertas = data, error: e => this.mostrarError(e) });
@@ -64,7 +67,6 @@ export class HorariosComponent implements OnInit {
   }
   romano(n: number): string { return ['I','II','III','IV','V','VI','VII','VIII','IX','X'][n-1]; }
   sesionesOferta(o: OfertaAdministracion): ProgramacionHorario[] { return this.sesiones.filter(s => s.cod_curso === o.cod_curso && s.cod_seccion === o.cod_seccion); }
-  get cursosUnicos(): OfertaAdministracion[] { return this.ofertas.filter((o, i, lista) => lista.findIndex(x => x.cod_curso === o.cod_curso) === i); }
   private limpiar(): void { this.mensaje = ''; this.error = ''; }
   private mostrarError(e: HttpErrorResponse): void { this.mensaje = ''; this.error = typeof e.error?.detail === 'string' ? e.error.detail : 'No se pudo completar la operación.'; }
 }

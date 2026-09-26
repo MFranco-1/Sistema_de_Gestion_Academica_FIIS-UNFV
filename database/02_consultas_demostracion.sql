@@ -123,7 +123,7 @@ JOIN curso AS c
   ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
  AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
 WHERE e.cod_estudiante = '2021000001'
-  AND o.cod_periodo = '2026-V' AND o.activo = TRUE
+  AND o.cod_periodo = '2026-II' AND o.activo = TRUE
 ORDER BY c.semestre, c.cod_curso;
 
 -- 11. Usuarios y perfiles asignados.
@@ -146,3 +146,12 @@ LEFT JOIN docente d ON d.cod_fac = o.cod_fac AND d.cod_esc = o.cod_esc
                     AND d.cod_docente = o.cod_docente
 WHERE o.cod_periodo = '2026-II' AND o.corr_pe = 2 AND c.semestre = 2
 ORDER BY c.cod_curso, o.cod_seccion;
+
+-- 12.1. Secciones de verano abiertas expresamente por demanda.
+SELECT p.cod_periodo, c.cod_curso, c.den_curso, o.cod_seccion, o.vacantes
+FROM oferta_curso o
+JOIN periodo_academico p ON p.cod_periodo = o.cod_periodo
+JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+            AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+WHERE p.tipo_periodo = 'VERANO' AND o.activo = TRUE
+ORDER BY p.fecha_inicio DESC, c.cod_curso, o.cod_seccion;

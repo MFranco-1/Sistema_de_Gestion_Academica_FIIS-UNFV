@@ -16,6 +16,17 @@ export interface Docente {
   fuente: string;
 }
 
+export interface DocentePayload {
+  cod_fac?: number;
+  cod_esc?: number;
+  cod_docente?: string;
+  apellidos_nombres: string;
+  categoria: string;
+  dedicacion: string;
+  departamento: string;
+  fuente: string;
+}
+
 export interface PlanEstudio {
   cod_fac: number;
   cod_esc: number;
@@ -289,6 +300,18 @@ export class ApiService {
     return this.http.get<Docente[]>(`${this.apiUrl}/docentes/`, { params });
   }
 
+  crearDocente(datos: DocentePayload): Observable<Docente> {
+    return this.http.post<Docente>(`${this.apiUrl}/docentes/`, datos);
+  }
+
+  editarDocente(codigo: string, datos: DocentePayload): Observable<Docente> {
+    return this.http.put<Docente>(`${this.apiUrl}/docentes/${encodeURIComponent(codigo)}`, datos);
+  }
+
+  eliminarDocente(codigo: string): Observable<Mensaje> {
+    return this.http.delete<Mensaje>(`${this.apiUrl}/docentes/${encodeURIComponent(codigo)}`);
+  }
+
   getCursos(corrPe: number, semestre?: number, buscar?: string): Observable<Curso[]> {
     let params = new HttpParams().set('cod_fac', 1).set('cod_esc', 1).set('corr_pe', corrPe);
     if (semestre) params = params.set('semestre', semestre);
@@ -339,8 +362,9 @@ export class ApiService {
     );
   }
 
-  getPeriodos(): Observable<PeriodoAcademico[]> {
-    return this.http.get<PeriodoAcademico[]>(`${this.apiUrl}/periodos/`);
+  getPeriodos(soloActivos = false): Observable<PeriodoAcademico[]> {
+    const params = soloActivos ? new HttpParams().set('solo_activos', true) : undefined;
+    return this.http.get<PeriodoAcademico[]>(`${this.apiUrl}/periodos/`, { params });
   }
 
   getProgramacion(corrPe: number, semestre?: number, codPeriodo?: string): Observable<ProgramacionHorario[]> {

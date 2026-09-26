@@ -32,6 +32,39 @@ class Docente(BaseModel):
         from_attributes = True
 
 
+class DocenteBase(BaseModel):
+    apellidos_nombres: str = Field(min_length=3, max_length=160)
+    categoria: str = Field(min_length=3, max_length=30)
+    dedicacion: str = Field(min_length=3, max_length=30)
+    departamento: str = Field(min_length=3, max_length=100)
+    fuente: str = Field(min_length=3, max_length=120)
+
+    @field_validator("categoria", "dedicacion")
+    @classmethod
+    def normalizar_clasificacion_docente(cls, valor: str) -> str:
+        return valor.strip().upper()
+
+    @field_validator("apellidos_nombres", "departamento", "fuente")
+    @classmethod
+    def limpiar_texto_docente(cls, valor: str) -> str:
+        return valor.strip()
+
+
+class DocenteCreate(DocenteBase):
+    cod_docente: str = Field(min_length=1, max_length=12)
+    cod_fac: int = 1
+    cod_esc: int = 1
+
+    @field_validator("cod_docente")
+    @classmethod
+    def normalizar_codigo_docente(cls, valor: str) -> str:
+        return valor.strip().upper()
+
+
+class DocenteUpdate(DocenteBase):
+    pass
+
+
 class PlanEstudio(BaseModel):
     cod_fac: int
     cod_esc: int

@@ -32,7 +32,7 @@ export class CatalogComponent implements OnInit {
     this.route.fragment.subscribe(fragment => {
       if (fragment) setTimeout(() => this.desplazarA(fragment));
     });
-    this.apiService.getPeriodos().subscribe(data => {
+    this.apiService.getPeriodos(true).subscribe(data => {
       this.periodos = data;
       this.selectedPeriodo = data.find(p => p.activo)?.cod_periodo ?? data[0]?.cod_periodo;
     });

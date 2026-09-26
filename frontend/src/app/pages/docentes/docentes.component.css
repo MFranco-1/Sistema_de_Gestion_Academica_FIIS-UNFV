@@ -4,6 +4,7 @@
 .page-header p { color:var(--text-secondary); font-size:14px; }
 .management-panel,.results-panel { background:#fff; border:1px solid var(--border-color); margin-bottom:22px; }
 .panel-title { background:#f4f1ee; border-bottom:1px solid var(--border-color); border-left:4px solid var(--unfv-maroon); padding:11px 15px; color:#4c1f25; font-size:13px; font-weight:700; }
+.title-actions { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .filters-row { display:grid; grid-template-columns:1.5fr 1fr auto auto; gap:14px; align-items:end; padding:18px; }
 .field { display:flex; flex-direction:column; gap:7px; min-width:0; }
 .field label { color:#514b4b; font-size:10px; font-weight:700; letter-spacing:.5px; }
@@ -21,6 +22,16 @@ td { padding:12px 13px; border-bottom:1px solid #ece7e4; color:#433d3d; }
 tr:nth-child(even) { background:#fcfbfa; }
 .code { color:var(--unfv-maroon); font-weight:700; }
 .loading,.empty { padding:29px; text-align:center; color:var(--text-secondary); }
-.notice.error { background:#fff1f1; border:1px solid #e9c2c2; color:#9d2525; padding:12px; margin-bottom:18px; }
+.notice { padding:12px; margin-bottom:18px; border-left:4px solid; background:#fff; }
+.notice.error { border-color:#b52a36; color:#9d2525; }
+.notice.success { border-color:#39814d; color:#286239; }
+.teacher-form form { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; padding:18px; }
+.teacher-form .wide { grid-column:span 2; }
+.form-actions { grid-column:1/-1; display:flex; justify-content:flex-end; gap:9px; }
+.row-actions { white-space:nowrap; }
+.row-actions button { min-height:31px; padding:0 10px; color:var(--unfv-maroon); background:#fff; border:1px solid #cbbfba; font-size:9px; font-weight:700; margin-right:6px; }
+.row-actions .danger { color:#a01f2c; border-color:#d7a6ab; }
+.primary-button:disabled { opacity:.55; cursor:not-allowed; }
 @media(max-width:800px){.filters-row{grid-template-columns:1fr 1fr}}
-@media(max-width:540px){.filters-row{grid-template-columns:1fr}}
+@media(max-width:800px){.teacher-form form{grid-template-columns:1fr 1fr}.teacher-form .wide{grid-column:span 1}}
+@media(max-width:540px){.filters-row,.teacher-form form{grid-template-columns:1fr}.title-actions{align-items:stretch;flex-direction:column}.form-actions{grid-column:auto}}

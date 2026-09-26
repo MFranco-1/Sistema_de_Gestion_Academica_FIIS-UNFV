@@ -33,6 +33,59 @@ def get_docentes(db: Session, buscar: str | None = None, categoria: str | None =
     return query.order_by(models.Docente.apellidos_nombres).all()
 
 
+def crear_docente(db: Session, datos: schemas.DocenteCreate):
+    if not db.query(models.Escuela).filter_by(
+        cod_fac=datos.cod_fac, cod_esc=datos.cod_esc,
+    ).first():
+        raise HTTPException(status_code=404, detail="La escuela seleccionada no existe.")
+    if db.query(models.Docente).filter_by(
+        cod_fac=datos.cod_fac, cod_esc=datos.cod_esc, cod_docente=datos.cod_docente,
+    ).first():
+        raise HTTPException(status_code=409, detail="Ya existe un docente con ese código.")
+    docente = models.Docente(**datos.model_dump())
+    db.add(docente)
+    _commit(db, "Ya existe un docente con ese código o nombre en la escuela.")
+    db.refresh(docente)
+    return docente
+
+
+def editar_docente(
+    db: Session, cod_docente: str, datos: schemas.DocenteUpdate,
+    cod_fac: int = 1, cod_esc: int = 1,
+):
+    docente = db.query(models.Docente).filter_by(
+        cod_fac=cod_fac, cod_esc=cod_esc, cod_docente=cod_docente.strip().upper(),
+    ).first()
+    if not docente:
+        raise HTTPException(status_code=404, detail="El docente no existe.")
+    for campo, valor in datos.model_dump().items():
+        setattr(docente, campo, valor)
+    _commit(db, "Ya existe otro docente con ese nombre en la escuela.")
+    db.refresh(docente)
+    return docente
+
+
+def eliminar_docente(db: Session, cod_docente: str, cod_fac: int = 1, cod_esc: int = 1):
+    docente = db.query(models.Docente).filter_by(
+        cod_fac=cod_fac, cod_esc=cod_esc, cod_docente=cod_docente.strip().upper(),
+    ).first()
+    if not docente:
+        raise HTTPException(status_code=404, detail="El docente no existe.")
+    if db.query(models.OfertaCurso).filter_by(
+        cod_fac=cod_fac, cod_esc=cod_esc, cod_docente=docente.cod_docente, activo=True,
+    ).first():
+        raise HTTPException(
+            status_code=409,
+            detail="No se puede eliminar al docente porque tiene cursos asignados. Retire primero sus asignaciones.",
+        )
+    db.query(models.OfertaCurso).filter_by(
+        cod_fac=cod_fac, cod_esc=cod_esc, cod_docente=docente.cod_docente, activo=False,
+    ).update({models.OfertaCurso.cod_docente: None}, synchronize_session=False)
+    db.delete(docente)
+    _commit(db, "No se pudo eliminar al docente.")
+    return {"mensaje": "Docente eliminado correctamente."}
+
+
 def get_planes(db: Session, cod_fac: int | None = None, cod_esc: int | None = None):
     query = (
         db.query(
@@ -139,8 +192,11 @@ def get_cursos(
     ]
 
 
-def get_periodos(db: Session):
-    return db.query(models.PeriodoAcademico).order_by(models.PeriodoAcademico.cod_periodo.desc()).all()
+def get_periodos(db: Session, solo_activos: bool = False):
+    query = db.query(models.PeriodoAcademico)
+    if solo_activos:
+        query = query.filter(models.PeriodoAcademico.activo.is_(True))
+    return query.order_by(models.PeriodoAcademico.fecha_inicio.desc()).all()
 
 
 def get_programacion(
@@ -249,6 +305,7 @@ def get_ofertas_administracion(
     ).filter(
         models.OfertaCurso.cod_periodo == cod_periodo,
         models.OfertaCurso.corr_pe == corr_pe,
+        models.OfertaCurso.activo.is_(True),
     )
     if semestre is not None:
         query = query.filter(models.Curso.semestre == semestre)
@@ -1035,16 +1092,44 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
 
 
 def abrir_seccion(db: Session, datos: schemas.OfertaSeccionCreate):
-    if not db.query(models.PeriodoAcademico).filter_by(cod_periodo=datos.cod_periodo).first():
+    periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=datos.cod_periodo).first()
+    if not periodo:
         raise HTTPException(status_code=404, detail="El período académico no existe.")
-    if not db.query(models.Curso).filter_by(
+    curso = db.query(models.Curso).filter_by(
         cod_fac=datos.cod_fac, cod_esc=datos.cod_esc, corr_pe=datos.corr_pe,
         cod_curso=datos.cod_curso,
-    ).first():
+    ).first()
+    if not curso:
         raise HTTPException(status_code=404, detail="El curso no pertenece a la malla seleccionada.")
-    if db.query(models.OfertaCurso).filter_by(**datos.model_dump(exclude={"vacantes"})).first():
+    existente = db.query(models.OfertaCurso).filter_by(
+        **datos.model_dump(exclude={"vacantes"}),
+    ).first()
+    if existente and existente.activo:
         raise HTTPException(status_code=409, detail="La sección ya está abierta para este curso y período.")
-    db.add(models.OfertaCurso(**datos.model_dump(), activo=True))
+    if existente:
+        existente.activo = True
+        existente.vacantes = datos.vacantes
+    else:
+        db.add(models.OfertaCurso(**datos.model_dump(), activo=True))
+
+    cabecera = db.query(models.HorarioCabecera).filter_by(
+        cod_periodo=periodo.cod_periodo, cod_fac=datos.cod_fac,
+        cod_esc=datos.cod_esc, corr_pe=datos.corr_pe,
+    ).first()
+    if not cabecera:
+        cabecera = models.HorarioCabecera(
+            cod_periodo=periodo.cod_periodo, cod_fac=datos.cod_fac,
+            cod_esc=datos.cod_esc, corr_pe=datos.corr_pe, fecha_creacion=date.today(),
+        )
+        db.add(cabecera)
+        db.flush()
+    if not db.query(models.HorarioDetalle).filter_by(
+        id_horario=cabecera.id_horario, semestre_corr=curso.semestre,
+    ).first():
+        db.add(models.HorarioDetalle(
+            id_horario=cabecera.id_horario, semestre_corr=curso.semestre,
+            semestre_desc=f"Semestre {curso.semestre}",
+        ))
     _commit(db, "No se pudo abrir la sección.")
     return {"mensaje": f"Sección {datos.cod_seccion} abierta con capacidad para {datos.vacantes} estudiantes."}
 

@@ -4,8 +4,6 @@
   <p>Administre la estructura académica, los estudiantes y las cuentas de acceso.</p>
 </header>
 
-<nav class="section-nav"><a *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')" href="#cursos">Cursos y prerrequisitos</a><a *ngIf="auth.puede('GESTION_ESTUDIANTES')" href="#estudiantes">Gestión de estudiantes</a></nav>
-
 <section class="selector-panel" *ngIf="auth.puede('MANTENIMIENTO_ACADEMICO')">
   <div class="field"><label>MALLA</label><select [(ngModel)]="selectedPlan" (change)="cambiarPlan()"><option *ngFor="let plan of planes" [ngValue]="plan.corr_pe">{{ plan.den_plan }}</option></select></div>
   <div class="field"><label>SEMESTRE</label><select [(ngModel)]="selectedSemester" (change)="cambiarSemestre()"><option [ngValue]="undefined">Seleccione</option><option *ngFor="let semestre of semestres" [ngValue]="semestre">Semestre {{ semestreRomano(semestre) }}</option></select></div>

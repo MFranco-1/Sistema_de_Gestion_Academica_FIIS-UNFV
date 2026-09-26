@@ -1,11 +1,27 @@
 <header class="page-header">
-  <div class="breadcrumbs">Inicio / Información académica</div>
+  <div class="breadcrumbs">Administración / Plana docente</div>
   <h1>Plana docente</h1>
-  <p>Docentes del Departamento Académico de Ingeniería de Sistemas.</p>
+  <p>Registre, actualice y consulte los docentes de la Escuela Profesional de Ingeniería de Sistemas.</p>
 </header>
 
+<div class="notice success" *ngIf="mensaje">{{ mensaje }}</div>
+<div class="notice error" *ngIf="error">{{ error }}</div>
+
+<section class="management-panel teacher-form" *ngIf="mostrarFormulario">
+  <div class="panel-title">{{ codigoEdicion ? 'Editar docente' : 'Nuevo docente' }}</div>
+  <form (ngSubmit)="guardar()">
+    <div class="field"><label>CÓDIGO</label><input name="codigo" [(ngModel)]="codigo" maxlength="12" [disabled]="!!codigoEdicion" required></div>
+    <div class="field wide"><label>APELLIDOS Y NOMBRES</label><input name="nombre" [(ngModel)]="formulario.apellidos_nombres" maxlength="160" required></div>
+    <div class="field"><label>CATEGORÍA</label><select name="categoriaForm" [(ngModel)]="formulario.categoria"><option>PRINCIPAL</option><option>ASOCIADO</option><option>AUXILIAR</option><option>CONTRATADO</option></select></div>
+    <div class="field"><label>DEDICACIÓN</label><select name="dedicacion" [(ngModel)]="formulario.dedicacion"><option>TIEMPO COMPLETO</option><option>TIEMPO PARCIAL</option></select></div>
+    <div class="field wide"><label>DEPARTAMENTO</label><input name="departamento" [(ngModel)]="formulario.departamento" maxlength="100" required></div>
+    <div class="field wide"><label>FUENTE / PROCEDENCIA</label><input name="fuente" [(ngModel)]="formulario.fuente" maxlength="120" required></div>
+    <div class="form-actions"><button class="secondary-button" type="button" (click)="cancelar()">CANCELAR</button><button class="primary-button" type="submit" [disabled]="guardando">{{ guardando ? 'GUARDANDO...' : 'GUARDAR DOCENTE' }}</button></div>
+  </form>
+</section>
+
 <section class="management-panel">
-  <div class="panel-title">Parámetros de consulta</div>
+  <div class="panel-title title-actions"><span>Parámetros de consulta</span><button class="primary-button" type="button" (click)="nuevo()">NUEVO DOCENTE</button></div>
   <div class="filters-row">
     <div class="field">
       <label>APELLIDOS, NOMBRES O CÓDIGO</label>
@@ -26,8 +42,6 @@
   </div>
 </section>
 
-<div class="notice error" *ngIf="error">{{ error }}</div>
-
 <section class="results-panel">
   <div class="results-header">
     <div><h2>Docentes registrados</h2><p>Resultado de la consulta</p></div>
@@ -36,7 +50,7 @@
   <div class="loading" *ngIf="cargando">Consultando la base de datos...</div>
   <div class="table-wrap" *ngIf="!cargando">
     <table>
-      <thead><tr><th>Código</th><th>Apellidos y nombres</th><th>Categoría</th><th>Dedicación</th><th>Departamento</th></tr></thead>
+      <thead><tr><th>Código</th><th>Apellidos y nombres</th><th>Categoría</th><th>Dedicación</th><th>Departamento</th><th>Acciones</th></tr></thead>
       <tbody>
         <tr *ngFor="let docente of docentes">
           <td class="code">{{ docente.cod_docente }}</td>
@@ -44,6 +58,7 @@
           <td>{{ docente.categoria }}</td>
           <td>{{ docente.dedicacion }}</td>
           <td>{{ docente.departamento }}</td>
+          <td class="row-actions"><button type="button" (click)="editar(docente)">EDITAR</button><button class="danger" type="button" (click)="eliminar(docente)">ELIMINAR</button></td>
         </tr>
       </tbody>
     </table>
