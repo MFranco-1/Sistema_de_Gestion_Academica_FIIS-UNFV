@@ -1,3 +1,6 @@
+import base64
+import binascii
+
 from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
@@ -198,13 +201,21 @@ def get_periodos(db: Session, solo_activos: bool = False):
     return query.order_by(models.PeriodoAcademico.fecha_inicio.desc()).all()
 
 
+def _limite_tercio(total_estudiantes: int) -> int:
+    """Devuelve el 33.3 % superior, redondeando una fracción hacia arriba."""
+    return (total_estudiantes + 2) // 3
+
+
 def get_ranking_ciclo(
     db: Session, cod_periodo: str, ciclo: int,
     corr_pe: int = 2, cod_fac: int = 1, cod_esc: int = 1,
+    anio_ingreso: int | None = None,
 ):
     periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=cod_periodo).first()
     if not periodo:
         raise HTTPException(status_code=404, detail="El período académico no existe.")
+    # El orden de mérito se calcula entre estudiantes de la misma base.
+    anio_ingreso = anio_ingreso or periodo.anio - ((ciclo - 1) // 2)
     filas = db.execute(text("""
         WITH promedios AS (
             SELECT e.cod_estudiante, e.apellidos_nombres,
@@ -225,6 +236,7 @@ def get_ranking_ciclo(
                         AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
             WHERE e.cod_fac = :cod_fac AND e.cod_esc = :cod_esc
               AND e.corr_pe = :corr_pe AND e.ciclo_actual = :ciclo
+              AND SUBSTRING(e.cod_estudiante FROM 1 FOR 4) = :anio_ingreso
               AND e.estado = 'ACTIVO' AND m.estado = 'CERRADA'
               AND pa.tipo_periodo <> 'VERANO'
               AND pa.fecha_inicio < :fecha_objetivo
@@ -249,12 +261,14 @@ def get_ranking_ciclo(
     """), {
         "cod_fac": cod_fac, "cod_esc": cod_esc, "corr_pe": corr_pe,
         "ciclo": ciclo, "fecha_objetivo": periodo.fecha_inicio,
+        "anio_ingreso": str(anio_ingreso),
     }).mappings().all()
     total = int(filas[0]["total_estudiantes"]) if filas else 0
-    limite = (total + 2) // 3
+    limite = _limite_tercio(total)
     return {
         "cod_periodo": cod_periodo,
         "ciclo": ciclo,
+        "anio_ingreso": anio_ingreso,
         "total_estudiantes": total,
         "limite_tercio": limite,
         "estudiantes": [{
@@ -398,7 +412,10 @@ def get_estado_acceso_matricula(
         corr_pe=corr_pe, ciclo=ciclo,
     ).first()
     fase = acceso.fase if acceso else "CERRADA"
-    ranking = get_ranking_ciclo(db, cod_periodo, ciclo, corr_pe, cod_fac, cod_esc)
+    base_ingreso = int(cod_estudiante[:4]) if cod_estudiante else None
+    ranking = get_ranking_ciclo(
+        db, cod_periodo, ciclo, corr_pe, cod_fac, cod_esc, base_ingreso,
+    )
     fila = next((item for item in ranking["estudiantes"] if item["cod_estudiante"] == cod_estudiante), None)
     pertenece_tercio = bool(fila and fila["tercio_superior"])
     habilitado = fase == "TODOS" or (fase == "TERCIO" and pertenece_tercio)
@@ -1292,6 +1309,12 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
         requisitos_por_curso.setdefault(requisito.cod_curso, set()).add(
             requisito.cod_curso_prerequisito,
         )
+    nombres_cursos = dict(
+        db.query(models.Curso.cod_curso, models.Curso.den_curso).filter_by(
+            cod_fac=estudiante.cod_fac, cod_esc=estudiante.cod_esc,
+            corr_pe=estudiante.corr_pe,
+        ).all()
+    )
 
     filas = (
         db.query(
@@ -1360,6 +1383,11 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
             minutos_teoria == curso.ht * 50 and minutos_practica == curso.hp * 50,
             len({s.aula for s in sesiones}) <= 1,
         )
+        if faltantes and motivo.startswith("Falta aprobar:"):
+            motivo = "Falta aprobar: " + ", ".join(
+                f"{requisito} · {nombres_cursos.get(requisito, 'Curso')}"
+                for requisito in sorted(faltantes)
+            )
         if motivo == "HORARIO_INCOMPLETO":
             motivo = f"Horario incompleto: la malla exige {curso.ht} h teóricas y {curso.hp} h prácticas."
         resultado.append({
@@ -1593,9 +1621,53 @@ def get_matriculas_estudiante(db: Session, codigo: str):
             "total_creditos": sum(item["cred"] for item in detalles_respuesta if item["resultado"] != "RETIRADO"),
             "promedio_aritmetico": round(sum(item["nota_final"] for item in calificados) / len(calificados), 2) if calificados else None,
             "promedio_ponderado": round(sum(item["nota_final"] * item["cred"] for item in calificados) / creditos_calificados, 2) if creditos_calificados else None,
+            "constancia_disponible": matricula.constancia is not None,
             "detalles": detalles_respuesta,
         })
     return resultado
+
+
+def guardar_constancia_matricula(
+    db: Session, id_matricula: int, datos: schemas.ConstanciaMatriculaCreate,
+):
+    matricula = db.query(models.Matricula).filter_by(id_matricula=id_matricula).first()
+    if not matricula:
+        raise HTTPException(status_code=404, detail="La matrícula no existe.")
+    try:
+        contenido = base64.b64decode(datos.contenido_base64, validate=True)
+    except (ValueError, binascii.Error):
+        raise HTTPException(status_code=422, detail="El documento PDF no es válido.")
+    if not contenido.startswith(b"%PDF-") or len(contenido) > 3_000_000:
+        raise HTTPException(status_code=422, detail="La constancia debe ser un PDF de hasta 3 MB.")
+    nombre = datos.nombre_archivo.replace("/", "-").replace("\\", "-")
+    if not nombre.lower().endswith(".pdf"):
+        nombre += ".pdf"
+    constancia = matricula.constancia
+    if constancia:
+        constancia.firma_estudiante = datos.firma_estudiante
+        constancia.contenido_pdf = contenido
+        constancia.nombre_archivo = nombre
+    else:
+        db.add(models.ConstanciaMatricula(
+            id_matricula=id_matricula,
+            firma_estudiante=datos.firma_estudiante,
+            contenido_pdf=contenido,
+            nombre_archivo=nombre,
+        ))
+    _commit(db, "No se pudo almacenar la constancia de matrícula.")
+    return {"mensaje": "Constancia de matrícula almacenada correctamente."}
+
+
+def get_constancia_matricula(db: Session, id_matricula: int):
+    constancia = db.query(models.ConstanciaMatricula).filter_by(
+        id_matricula=id_matricula,
+    ).first()
+    if not constancia:
+        raise HTTPException(
+            status_code=404,
+            detail="Esta matrícula aún no tiene una constancia almacenada.",
+        )
+    return constancia
 
 
 def get_prematricula(db: Session, codigo: str):

@@ -27,9 +27,10 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Asignación de docentes por curso, período y sección para los perfiles autorizados.
 - El alumno visualiza el docente de cada sección antes de matricularse, en su prematrícula y en el historial académico.
 - Prematrícula estudiantil persistente con vista semanal institucional; funciona como guía y no altera la matrícula oficial.
-- La matrícula muestra un resumen lateral de cursos y créditos, solicita confirmación y permite descargar una constancia PDF por período.
-- El historial presenta prácticas (40 %), parcial (30 %), examen final (30 %), promedio final, promedio aritmético y promedio ponderado.
-- Orden de mérito por ciclo y tercio superior calculado desde el último período regular cerrado con notas; verano no altera la prioridad.
+- La matrícula muestra un resumen lateral de cursos y créditos, captura la firma manuscrita del estudiante y almacena la constancia PDF firmada junto con la firma institucional.
+- El horario oficial permanece visible durante el ciclo registrado y deja de ser vigente cuando el alumno avanza al siguiente ciclo.
+- El historial permite elegir únicamente entre los períodos realmente matriculados, descargar sus constancias almacenadas y consultar notas y promedios.
+- Orden de mérito separado por base de ingreso; el tercio superior es el 33.3 % de sus estudiantes evaluados, redondeado hacia arriba.
 - Apertura de matrícula por período, malla y ciclo en tres fases: cerrada, solo tercio superior o todos; la prematrícula sigue disponible.
 - Suspensión automática por tercera desaprobación del mismo curso durante los dos semestres regulares siguientes, incluidos los veranos intermedios.
 - Prematrículas, fases de matrícula y permisos normalizados en tablas relacionadas, sin listas o documentos JSON como fuente operativa.
@@ -39,7 +40,7 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 
 ## Modelo de datos
 
-El modelo mantiene veintidós tablas:
+El modelo mantiene veintitrés tablas:
 
 1. `facultad`
 2. `escuela`
@@ -58,11 +59,12 @@ El modelo mantiene veintidós tablas:
 15. `prematricula_detalle`
 16. `matricula`
 17. `matricula_detalle`
-18. `permiso`
-19. `perfil`
-20. `perfil_permiso`
-21. `usuario`
-22. `usuario_perfil`
+18. `constancia_matricula`
+19. `permiso`
+20. `perfil`
+21. `perfil_permiso`
+22. `usuario`
+23. `usuario_perfil`
 
 No existe una tabla `plan_semestre`. Los semestres de cada malla se obtienen con `SELECT DISTINCT curso.semestre`.
 
@@ -150,7 +152,7 @@ No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render 
 - `GET /resumen-semestre/?corr_pe=2&semestre=6`
 - `GET /periodos/`
 - `GET /periodos/?solo_activos=true`
-- `GET /periodos/{periodo}/ranking/{ciclo}?corr_pe=2`
+- `GET /periodos/{periodo}/ranking/{ciclo}?corr_pe=2&anio_ingreso=2024`
 - `GET /periodos/{periodo}/matricula-acceso/{ciclo}?corr_pe=2`
 - `PUT /periodos/{periodo}/matricula-acceso/{ciclo}?corr_pe=2`
 - `GET /horarios/?corr_pe=2&semestre=6&cod_periodo=2026-II`
@@ -165,6 +167,8 @@ No ejecutes `seed_db.py --reset` sobre una base con datos. Si la base de Render 
 - `GET /estudiantes/me/ranking?cod_periodo=2027-I`
 - `GET /estudiantes/me/matricula-acceso?cod_periodo=2027-I`
 - `POST /matriculas/`
+- `PUT /matriculas/{id}/constancia`
+- `GET /matriculas/{id}/constancia`
 - `PUT /matriculas/{id}/ofertas/{id_oferta}/resultado`
 - `PUT /matriculas/{id}/resultados`
 

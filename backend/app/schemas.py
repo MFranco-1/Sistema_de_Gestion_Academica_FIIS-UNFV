@@ -120,6 +120,7 @@ class RankingEstudiante(BaseModel):
 class RankingCiclo(BaseModel):
     cod_periodo: str
     ciclo: int
+    anio_ingreso: int
     total_estudiantes: int
     limite_tercio: int
     estudiantes: list[RankingEstudiante] = []
@@ -517,7 +518,14 @@ class MatriculaResumen(BaseModel):
     total_creditos: int = 0
     promedio_aritmetico: Optional[float] = None
     promedio_ponderado: Optional[float] = None
+    constancia_disponible: bool = False
     detalles: list[MatriculaDetalle] = []
+
+
+class ConstanciaMatriculaCreate(BaseModel):
+    firma_estudiante: str = Field(min_length=30, max_length=300_000)
+    contenido_base64: str = Field(min_length=100, max_length=4_000_000)
+    nombre_archivo: str = Field(min_length=5, max_length=180)
 
 
 class Mensaje(BaseModel):

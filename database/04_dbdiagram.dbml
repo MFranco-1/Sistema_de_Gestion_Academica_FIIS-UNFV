@@ -164,6 +164,14 @@ Table matricula_detalle {
   resultado varchar(12) [not null]
 }
 
+Table constancia_matricula {
+  id_matricula integer [pk]
+  firma_estudiante text [not null]
+  contenido_pdf bytea [not null]
+  nombre_archivo varchar(180) [not null]
+  fecha_generacion timestamp [not null]
+}
+
 Table permiso {
   codigo varchar(40) [pk]
   nombre varchar(100) [not null]
@@ -218,6 +226,7 @@ Ref: prematricula_detalle.id_oferta > oferta_curso.id_oferta
 Ref: matricula.cod_estudiante > estudiante.cod_estudiante
 Ref: matricula.cod_periodo > periodo_academico.cod_periodo
 Ref: matricula.(cod_fac, cod_esc, corr_pe) > plan_estudio.(cod_fac, cod_esc, corr_pe)
+Ref: constancia_matricula.id_matricula - matricula.id_matricula
 Ref: matricula_detalle.id_matricula > matricula.id_matricula
 Ref: matricula_detalle.id_oferta > oferta_curso.id_oferta
 Ref: perfil_permiso.id_perfil > perfil.id_perfil

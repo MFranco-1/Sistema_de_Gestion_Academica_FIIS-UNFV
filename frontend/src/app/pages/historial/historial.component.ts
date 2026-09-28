@@ -6,6 +6,7 @@ import { ApiService, Estudiante, MatriculaResumen } from '../../services/api.ser
 export class HistorialComponent implements OnInit {
   estudiante?: Estudiante;
   matriculas: MatriculaResumen[] = [];
+  matriculaSeleccionada?: number;
   error = '';
   constructor(private api: ApiService) {}
   ngOnInit(): void {
@@ -13,9 +14,22 @@ export class HistorialComponent implements OnInit {
       next: estudiante => {
         this.estudiante = estudiante;
         this.api.getMatriculasEstudiante(estudiante.cod_estudiante).subscribe({
-          next: data => this.matriculas = data,
+          next: data => { this.matriculas = data; this.matriculaSeleccionada = data[0]?.id_matricula; },
           error: e => this.mostrarError(e)
         });
+      },
+      error: e => this.mostrarError(e)
+    });
+  }
+  get matriculasVisibles(): MatriculaResumen[] {
+    return this.matriculas.filter(item => item.id_matricula === Number(this.matriculaSeleccionada));
+  }
+  descargarConstancia(matricula: MatriculaResumen): void {
+    this.api.descargarConstancia(matricula.id_matricula).subscribe({
+      next: archivo => {
+        const url = URL.createObjectURL(archivo); const enlace = document.createElement('a');
+        enlace.href = url; enlace.download = `constancia-matricula-${matricula.cod_periodo}.pdf`;
+        enlace.click(); URL.revokeObjectURL(url);
       },
       error: e => this.mostrarError(e)
     });

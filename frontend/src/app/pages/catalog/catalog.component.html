@@ -40,9 +40,10 @@
   <div class="control-message error" *ngIf="errorControl">{{ errorControl }}</div>
 
   <div class="ranking-summary" *ngIf="rankingControl as ranking">
+    <div><span>BASE DE INGRESO</span><strong>{{ ranking.anio_ingreso }}</strong></div>
     <div><span>ESTUDIANTES EVALUADOS</span><strong>{{ ranking.total_estudiantes }}</strong></div>
-    <div><span>LÍMITE DEL TERCIO</span><strong>{{ ranking.limite_tercio }} estudiante(s)</strong></div>
-    <p>El ranking usa el último período regular cerrado con notas; verano no cambia la prioridad. La prematrícula permanece disponible en cualquier fase.</p>
+    <div><span>TERCIO SUPERIOR (33.3 %)</span><strong>{{ ranking.limite_tercio }} estudiante(s)</strong></div>
+    <p>El ranking compara únicamente alumnos de la misma base de ingreso y usa el último período regular cerrado con notas; verano no cambia la prioridad.</p>
   </div>
 
   <div class="ranking-table-wrap" *ngIf="rankingControl?.estudiantes?.length; else sinRanking">

@@ -2,6 +2,7 @@ import os
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException, Path, Query, status
+from fastapi.responses import Response
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 
@@ -25,7 +26,7 @@ cors_origins.extend(
 app = FastAPI(
     title="Sistema de Gestión Académica FIIS",
     description="Consulta de planes, prerrequisitos, programación académica y plana docente.",
-    version="3.1.0",
+    version="3.2.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -38,7 +39,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.1.0"}
+    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.2.0"}
 
 
 def _sesion_dict(usuario, perfil_activo: str):
@@ -166,10 +167,13 @@ def read_periodos(solo_activos: bool = False, db: Session = Depends(get_db)):
 @app.get("/periodos/{cod_periodo}/ranking/{ciclo}", response_model=schemas.RankingCiclo)
 def read_ranking_ciclo(
     cod_periodo: str, ciclo: int = Path(ge=1, le=10), corr_pe: int = 2,
+    anio_ingreso: int | None = Query(default=None, ge=2000, le=2100),
     db: Session = Depends(get_db),
     _: auth.UsuarioActual = Depends(auth.require_permission("GESTION_CURRICULAR")),
 ):
-    return crud.get_ranking_ciclo(db, cod_periodo, ciclo, corr_pe)
+    return crud.get_ranking_ciclo(
+        db, cod_periodo, ciclo, corr_pe, anio_ingreso=anio_ingreso,
+    )
 
 
 @app.get(
@@ -359,6 +363,7 @@ def read_mi_ranking(
     return crud.get_ranking_ciclo(
         db, cod_periodo, estudiante.ciclo_actual, estudiante.corr_pe,
         estudiante.cod_fac, estudiante.cod_esc,
+        int(estudiante.cod_estudiante[:4]),
     )
 
 
@@ -448,6 +453,49 @@ def create_matricula(
         raise HTTPException(status_code=403, detail="Solo puede registrar su propia matrícula.")
     validar_acceso = "GESTION_MATRICULAS" not in actual.permisos
     return crud.crear_matricula(db, datos, validar_acceso=validar_acceso)
+
+
+def _validar_acceso_constancia(
+    actual: auth.UsuarioActual, matricula: models.Matricula,
+) -> None:
+    if "GESTION_MATRICULAS" not in actual.permisos and (
+        "MATRICULA_PROPIA" not in actual.permisos
+        or actual.cod_estudiante != matricula.cod_estudiante
+    ):
+        raise HTTPException(status_code=403, detail="Solo puede consultar su propia constancia.")
+
+
+@app.put("/matriculas/{id_matricula}/constancia", response_model=schemas.Mensaje)
+def upload_constancia(
+    id_matricula: int, datos: schemas.ConstanciaMatriculaCreate,
+    actual: auth.UsuarioActual = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    matricula = db.query(models.Matricula).filter_by(id_matricula=id_matricula).first()
+    if not matricula:
+        raise HTTPException(status_code=404, detail="La matrícula no existe.")
+    _validar_acceso_constancia(actual, matricula)
+    return crud.guardar_constancia_matricula(db, id_matricula, datos)
+
+
+@app.get("/matriculas/{id_matricula}/constancia")
+def download_constancia(
+    id_matricula: int,
+    actual: auth.UsuarioActual = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    matricula = db.query(models.Matricula).filter_by(id_matricula=id_matricula).first()
+    if not matricula:
+        raise HTTPException(status_code=404, detail="La matrícula no existe.")
+    _validar_acceso_constancia(actual, matricula)
+    constancia = crud.get_constancia_matricula(db, id_matricula)
+    return Response(
+        content=constancia.contenido_pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{constancia.nombre_archivo}"',
+        },
+    )
 
 
 @app.put(

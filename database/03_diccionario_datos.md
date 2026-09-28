@@ -1,6 +1,6 @@
 # Diccionario de datos
 
-El modelo contiene veintidós tablas. No existe `plan_semestre`: los semestres disponibles se obtienen con `SELECT DISTINCT curso.semestre` para cada malla.
+El modelo contiene veintitrés tablas. No existe `plan_semestre`: los semestres disponibles se obtienen con `SELECT DISTINCT curso.semestre` para cada malla.
 
 | Tabla | Propósito | Clave primaria | Reglas principales |
 |---|---|---|---|
@@ -21,6 +21,7 @@ El modelo contiene veintidós tablas. No existe `plan_semestre`: los semestres d
 | `prematricula_detalle` | Ofertas elegidas en una prematrícula. | `id_prematricula, id_oferta` | No repite ofertas y elimina sus filas junto con la cabecera. |
 | `matricula` | Cabecera de matrícula por estudiante y período. | `id_matricula` | Una matrícula por estudiante y período; conserva la malla y ciclo utilizados. |
 | `matricula_detalle` | Cursos, notas y resultados de una matrícula. | `id_matricula, id_oferta` | Prácticas 40 %, parcial 30 % y examen final 30 %, todas de 0 a 20; `nota_final` es el promedio calculado. Resultado matriculado, aprobado, desaprobado o retirado. |
+| `constancia_matricula` | Firma del estudiante y PDF oficial emitido para una matrícula. | `id_matricula` | Una constancia por matrícula; acceso exclusivo del titular o gestión académica; eliminación en cascada. |
 | `permiso` | Catálogo atómico de permisos del sistema. | `codigo` | Código único usado por la autorización del backend. |
 | `perfil` | Catálogo de perfiles de acceso. | `id_perfil` | Código y nombre únicos; incluye Administrador, Estudiante, Jefe de departamento, Director de escuela y Administración. |
 | `perfil_permiso` | Permisos asignados a cada perfil. | `id_perfil, cod_permiso` | Relación muchos a muchos sin listas separadas por comas. |
@@ -29,7 +30,7 @@ El modelo contiene veintidós tablas. No existe `plan_semestre`: los semestres d
 
 ## Integridad transaccional
 
-Las operaciones de mantenimiento confirman la transacción solamente después de validar todas las reglas. Ante una violación de integridad, la API ejecuta `ROLLBACK` y devuelve un mensaje HTTP 409 o 422 comprensible. La matrícula exige que la oferta pertenezca a la malla, esté abierta en el período, tenga vacantes, que todos los prerrequisitos estén aprobados y que la fase autorice al estudiante. Un curso aprobado no puede volver a matricularse. La tercera desaprobación del mismo curso suspende los dos semestres regulares siguientes, incluyendo los veranos intermedios. El tercio superior se obtiene del orden por promedio ponderado del último período cerrado; la prematrícula no depende de la fase. Las contraseñas no se almacenan en texto: se derivan con PBKDF2-SHA256 y sal aleatoria.
+Las operaciones de mantenimiento confirman la transacción solamente después de validar todas las reglas. Ante una violación de integridad, la API ejecuta `ROLLBACK` y devuelve un mensaje HTTP 409 o 422 comprensible. La matrícula exige que la oferta pertenezca a la malla, esté abierta en el período, tenga vacantes, que todos los prerrequisitos estén aprobados y que la fase autorice al estudiante. Un curso aprobado no puede volver a matricularse. La tercera desaprobación del mismo curso suspende los dos semestres regulares siguientes, incluyendo los veranos intermedios. El tercio superior corresponde al 33.3 % (redondeado hacia arriba) del orden por promedio ponderado del último período cerrado y se calcula únicamente entre estudiantes de la misma base de ingreso; la prematrícula no depende de la fase. Las contraseñas no se almacenan en texto: se derivan con PBKDF2-SHA256 y sal aleatoria.
 
 ## Regla de avance de ciclo
 

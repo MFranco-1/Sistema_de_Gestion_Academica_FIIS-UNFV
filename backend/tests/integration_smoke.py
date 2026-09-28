@@ -19,7 +19,7 @@ def main() -> None:
     inspector = inspect(engine)
     expected_tables = {
         "prematricula", "prematricula_detalle", "periodo_matricula_acceso",
-        "permiso", "perfil_permiso",
+        "permiso", "perfil_permiso", "constancia_matricula",
     }
     assert expected_tables.issubset(set(inspector.get_table_names()))
     teacher_column = next(

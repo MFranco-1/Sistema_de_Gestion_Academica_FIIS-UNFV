@@ -1,8 +1,9 @@
 from sqlalchemy import (
-    Boolean, CheckConstraint, Column, Date, ForeignKey, ForeignKeyConstraint,
-    Index, Integer, String, Time, UniqueConstraint,
+    Boolean, CheckConstraint, Column, Date, DateTime, ForeignKey, ForeignKeyConstraint,
+    Index, Integer, LargeBinary, String, Text, Time, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
 
 from app.database import Base
 
@@ -332,6 +333,22 @@ class Matricula(Base):
         CheckConstraint("ciclo_matricula BETWEEN 1 AND 10", name="ck_matricula_ciclo"),
         CheckConstraint("estado IN ('REGISTRADA', 'ANULADA', 'CERRADA')", name="ck_matricula_estado"),
     )
+    constancia = relationship(
+        "ConstanciaMatricula", uselist=False, cascade="all, delete-orphan",
+        back_populates="matricula",
+    )
+
+
+class ConstanciaMatricula(Base):
+    __tablename__ = "constancia_matricula"
+    id_matricula = Column(
+        Integer, ForeignKey("matricula.id_matricula", ondelete="CASCADE"), primary_key=True,
+    )
+    firma_estudiante = Column(Text, nullable=False)
+    contenido_pdf = Column(LargeBinary, nullable=False)
+    nombre_archivo = Column(String(180), nullable=False)
+    fecha_generacion = Column(DateTime, nullable=False, server_default=func.now())
+    matricula = relationship("Matricula", back_populates="constancia")
 
 
 class MatriculaDetalle(Base):

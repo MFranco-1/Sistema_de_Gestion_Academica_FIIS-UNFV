@@ -123,6 +123,7 @@ export interface RankingEstudiante {
 export interface RankingCiclo {
   cod_periodo: string;
   ciclo: number;
+  anio_ingreso: number;
   total_estudiantes: number;
   limite_tercio: number;
   estudiantes: RankingEstudiante[];
@@ -287,6 +288,7 @@ export interface MatriculaResumen {
   total_creditos: number;
   promedio_aritmetico?: number;
   promedio_ponderado?: number;
+  constancia_disponible: boolean;
   detalles: MatriculaDetalle[];
 }
 
@@ -400,10 +402,12 @@ export class ApiService {
     return this.http.get<PeriodoAcademico[]>(`${this.apiUrl}/periodos/`, { params });
   }
 
-  getRankingCiclo(periodo: string, ciclo: number, corrPe = 2): Observable<RankingCiclo> {
+  getRankingCiclo(periodo: string, ciclo: number, corrPe = 2, anioIngreso?: number): Observable<RankingCiclo> {
+    let params = new HttpParams().set('corr_pe', corrPe);
+    if (anioIngreso) params = params.set('anio_ingreso', anioIngreso);
     return this.http.get<RankingCiclo>(
       `${this.apiUrl}/periodos/${encodeURIComponent(periodo)}/ranking/${ciclo}`,
-      { params: new HttpParams().set('corr_pe', corrPe) }
+      { params }
     );
   }
 
@@ -483,6 +487,22 @@ export class ApiService {
   crearMatricula(codigo: string, periodo: string, ofertas: number[]): Observable<MatriculaResumen> {
     return this.http.post<MatriculaResumen>(`${this.apiUrl}/matriculas/`, {
       cod_estudiante: codigo, cod_periodo: periodo, ofertas
+    });
+  }
+
+  guardarConstancia(
+    idMatricula: number, firmaEstudiante: string, contenidoBase64: string, nombreArchivo: string
+  ): Observable<Mensaje> {
+    return this.http.put<Mensaje>(`${this.apiUrl}/matriculas/${idMatricula}/constancia`, {
+      firma_estudiante: firmaEstudiante,
+      contenido_base64: contenidoBase64,
+      nombre_archivo: nombreArchivo
+    });
+  }
+
+  descargarConstancia(idMatricula: number): Observable<Blob> {
+    return this.http.get(`${this.apiUrl}/matriculas/${idMatricula}/constancia`, {
+      responseType: 'blob'
     });
   }
 

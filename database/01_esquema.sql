@@ -248,6 +248,15 @@ CREATE TABLE matricula_detalle (
         (resultado IN ('MATRICULADO','APROBADO','DESAPROBADO','RETIRADO'))
 );
 
+CREATE TABLE constancia_matricula (
+    id_matricula INTEGER PRIMARY KEY
+        REFERENCES matricula(id_matricula) ON DELETE CASCADE,
+    firma_estudiante TEXT NOT NULL,
+    contenido_pdf BYTEA NOT NULL,
+    nombre_archivo VARCHAR(180) NOT NULL,
+    fecha_generacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE permiso (
     codigo VARCHAR(40) PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL

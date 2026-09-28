@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
 import { jsPDF } from 'jspdf';
 import { ApiService, BloqueHorario, Estudiante, MatriculaAccesoEstado, MatriculaResumen, OfertaCurso, PeriodoAcademico, RankingCiclo, RankingEstudiante } from '../../services/api.service';
@@ -6,6 +6,7 @@ import { AuthService } from '../../services/auth.service';
 
 @Component({ selector: 'app-matricula', templateUrl: './matricula.component.html', styleUrls: ['./matricula.component.css'] })
 export class MatriculaComponent implements OnInit {
+  @ViewChild('signatureCanvas') signatureCanvas?: ElementRef<HTMLCanvasElement>;
   estudiante?: Estudiante;
   private periodosBase: PeriodoAcademico[] = [];
   private historialCargado = false;
@@ -19,6 +20,9 @@ export class MatriculaComponent implements OnInit {
   error = '';
   cargando = true;
   confirmando = false;
+  firmaRealizada = false;
+  guardandoMatricula = false;
+  private dibujandoFirma = false;
   ultimaMatricula?: MatriculaResumen;
   ranking?: RankingCiclo;
   accesoMatricula?: MatriculaAccesoEstado;
@@ -150,6 +154,15 @@ export class MatriculaComponent implements OnInit {
     return resultado.sort((a, b) => a.bloque.hora_inicio.localeCompare(b.bloque.hora_inicio));
   }
 
+  bloquesMatriculaDia(dia: string): { oferta: OfertaCurso; bloque: BloqueHorario }[] {
+    const ids = new Set(this.matriculaVigente?.detalles.map(item => item.id_oferta) || []);
+    const resultado: { oferta: OfertaCurso; bloque: BloqueHorario }[] = [];
+    this.ofertas.filter(oferta => ids.has(oferta.id_oferta)).forEach(oferta =>
+      oferta.horarios.filter(bloque => bloque.dia_semana === dia).forEach(bloque => resultado.push({ oferta, bloque }))
+    );
+    return resultado.sort((a, b) => a.bloque.hora_inicio.localeCompare(b.bloque.hora_inicio));
+  }
+
   get crucePrematricula(): string {
     const bloques = this.diasHorario.flatMap(dia => this.bloquesDia(dia));
     const minutos = (v: string) => { const [h, m] = v.slice(0, 5).split(':').map(Number); return h * 60 + m; };
@@ -163,26 +176,55 @@ export class MatriculaComponent implements OnInit {
   abrirConfirmacion(): void {
     if (!this.seleccionadas.size || this.crucePrematricula || !this.puedeRegistrar) return;
     this.confirmando = true;
+    this.firmaRealizada = false;
+    setTimeout(() => this.prepararLienzoFirma());
   }
 
   registrarMatricula(): void {
-    if (!this.estudiante || !this.seleccionadas.size || !this.puedeRegistrar) return;
+    if (!this.estudiante || !this.seleccionadas.size || !this.puedeRegistrar || !this.firmaRealizada) return;
     this.mensaje = ''; this.error = '';
+    this.guardandoMatricula = true;
+    const firma = this.signatureCanvas?.nativeElement.toDataURL('image/png') || '';
     this.api.crearMatricula(this.estudiante.cod_estudiante, this.periodoSeleccionado, [...this.seleccionadas]).subscribe({
-      next: matricula => {
+      next: async matricula => {
         this.ultimaMatricula = matricula;
-        this.confirmando = false;
-        this.mensaje = 'Matrícula registrada correctamente. Ya puede descargar su constancia.';
-        this.cargarFicha();
+        try {
+          const pdf = await this.crearDocumentoPdf(matricula, firma);
+          const contenido = this.arrayBufferBase64(pdf.output('arraybuffer'));
+          const nombre = `constancia-matricula-${matricula.cod_periodo}-${this.estudiante!.cod_estudiante}.pdf`;
+          this.api.guardarConstancia(matricula.id_matricula, firma, contenido, nombre).subscribe({
+            next: () => {
+              matricula.constancia_disponible = true;
+              this.finalizarRegistro('Matrícula registrada y constancia almacenada correctamente.');
+            },
+            error: error => {
+              this.guardandoMatricula = false; this.confirmando = false;
+              this.mostrarError(error);
+              this.mensaje = 'La matrícula se registró, pero no se pudo almacenar la constancia.';
+              this.cargarFicha();
+            }
+          });
+        } catch {
+          this.guardandoMatricula = false; this.confirmando = false;
+          this.mensaje = 'La matrícula se registró, pero no se pudo generar la constancia.';
+          this.cargarFicha();
+        }
       },
-      error: error => { this.confirmando = false; this.mostrarError(error); }
+      error: error => { this.guardandoMatricula = false; this.confirmando = false; this.mostrarError(error); }
     });
   }
 
   descargarConstancia(): void {
     const matricula = this.ultimaMatricula;
-    const estudiante = this.estudiante;
-    if (!matricula || !estudiante) return;
+    if (!matricula?.constancia_disponible) return;
+    this.api.descargarConstancia(matricula.id_matricula).subscribe({
+      next: archivo => this.guardarBlob(archivo, `constancia-matricula-${matricula.cod_periodo}.pdf`),
+      error: error => this.mostrarError(error)
+    });
+  }
+
+  private async crearDocumentoPdf(matricula: MatriculaResumen, firma: string): Promise<jsPDF> {
+    const estudiante = this.estudiante!;
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const maroon: [number, number, number] = [132, 29, 42];
     const gold: [number, number, number] = [199, 146, 38];
@@ -239,11 +281,69 @@ export class MatriculaComponent implements OnInit {
     pdf.setFontSize(11);
     pdf.setTextColor(...maroon);
     pdf.text(`TOTAL DE CRÉDITOS: ${matricula.total_creditos}`, 285, y + 11, { align: 'right' });
+    const firmaEscuela = await this.cargarImagen('/assets/documentos/firma-oficina-academica.png');
+    const firmasY = Math.min(y + 18, 163);
+    pdf.addImage(firmaEscuela, 'PNG', 39, firmasY, 72, 32, undefined, 'FAST');
+    pdf.addImage(firma, 'PNG', 190, firmasY, 58, 24, undefined, 'FAST');
+    pdf.setDrawColor(90, 90, 90);
+    pdf.setLineWidth(.25);
+    pdf.line(35, firmasY + 33, 115, firmasY + 33);
+    pdf.line(178, firmasY + 33, 260, firmasY + 33);
+    pdf.setTextColor(70, 70, 70);
+    pdf.setFontSize(8);
+    pdf.text('OFICINA TÉCNICA ACADÉMICA', 75, firmasY + 37, { align: 'center' });
+    pdf.text('FIRMA DEL ESTUDIANTE', 219, firmasY + 37, { align: 'center' });
     pdf.setTextColor(90, 90, 90);
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8);
-    pdf.text('Documento generado por el Sistema de Gestión Académica FIIS–UNFV.', 12, 200);
-    pdf.save(`constancia-matricula-${matricula.cod_periodo}-${estudiante.cod_estudiante}.pdf`);
+    pdf.text('Documento generado y almacenado por el Sistema de Gestión Académica FIIS–UNFV.', 12, 205);
+    return pdf;
+  }
+
+  iniciarFirma(evento: PointerEvent): void {
+    const lienzo = evento.currentTarget as HTMLCanvasElement;
+    this.dibujandoFirma = true; lienzo.setPointerCapture(evento.pointerId);
+    const punto = this.puntoFirma(lienzo, evento); const contexto = lienzo.getContext('2d')!;
+    contexto.beginPath(); contexto.moveTo(punto.x, punto.y);
+  }
+  dibujarFirma(evento: PointerEvent): void {
+    if (!this.dibujandoFirma) return;
+    const lienzo = evento.currentTarget as HTMLCanvasElement;
+    const punto = this.puntoFirma(lienzo, evento); const contexto = lienzo.getContext('2d')!;
+    contexto.lineTo(punto.x, punto.y); contexto.stroke(); this.firmaRealizada = true;
+  }
+  terminarFirma(): void { this.dibujandoFirma = false; }
+  limpiarFirma(): void {
+    const lienzo = this.signatureCanvas?.nativeElement;
+    if (lienzo) lienzo.getContext('2d')?.clearRect(0, 0, lienzo.width, lienzo.height);
+    this.firmaRealizada = false;
+  }
+  private prepararLienzoFirma(): void {
+    const lienzo = this.signatureCanvas?.nativeElement; if (!lienzo) return;
+    const contexto = lienzo.getContext('2d')!;
+    contexto.strokeStyle = '#173b75'; contexto.lineWidth = 2.2;
+    contexto.lineCap = 'round'; contexto.lineJoin = 'round';
+  }
+  private puntoFirma(lienzo: HTMLCanvasElement, evento: PointerEvent): { x: number; y: number } {
+    const rect = lienzo.getBoundingClientRect();
+    return { x: (evento.clientX - rect.left) * lienzo.width / rect.width, y: (evento.clientY - rect.top) * lienzo.height / rect.height };
+  }
+  private cargarImagen(url: string): Promise<string> {
+    return fetch(url).then(respuesta => respuesta.blob()).then(blob => new Promise<string>((resolve, reject) => {
+      const lector = new FileReader(); lector.onload = () => resolve(String(lector.result)); lector.onerror = reject; lector.readAsDataURL(blob);
+    }));
+  }
+  private arrayBufferBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer); let binario = '';
+    for (let i = 0; i < bytes.length; i += 8192) binario += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    return btoa(binario);
+  }
+  private guardarBlob(blob: Blob, nombre: string): void {
+    const url = URL.createObjectURL(blob); const enlace = document.createElement('a');
+    enlace.href = url; enlace.download = nombre; enlace.click(); URL.revokeObjectURL(url);
+  }
+  private finalizarRegistro(mensaje: string): void {
+    this.guardandoMatricula = false; this.confirmando = false; this.mensaje = mensaje; this.cargarFicha();
   }
 
   semestreRomano(numero: number): string { return ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X'][numero - 1]; }
@@ -269,6 +369,11 @@ export class MatriculaComponent implements OnInit {
   }
   get miRanking(): RankingEstudiante | undefined {
     return this.ranking?.estudiantes.find(item => item.cod_estudiante === this.estudiante?.cod_estudiante);
+  }
+  get matriculaVigente(): MatriculaResumen | undefined {
+    return this.matriculas.find(item =>
+      item.estado === 'REGISTRADA' && item.ciclo_matricula === this.estudiante?.ciclo_actual
+    );
   }
   get puedeRegistrar(): boolean {
     return !!this.accesoMatricula?.habilitado;

@@ -156,7 +156,7 @@ JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
 WHERE p.tipo_periodo = 'VERANO' AND o.activo = TRUE
 ORDER BY p.fecha_inicio DESC, c.cod_curso, o.cod_seccion;
 
--- 13. Ranking por promedio ponderado y pertenencia al tercio superior.
+-- 13. Ranking por base de ingreso (ejemplo 2024), promedio ponderado y tercio superior (33.3 %).
 WITH promedios AS (
   SELECT e.cod_estudiante, e.apellidos_nombres,
          ROUND(AVG(md.nota_final)::NUMERIC, 2) AS promedio_aritmetico,
@@ -167,7 +167,9 @@ WITH promedios AS (
   JOIN oferta_curso o ON o.id_oferta = md.id_oferta
   JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
               AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
-  WHERE e.corr_pe = 2 AND e.ciclo_actual = 3 AND m.estado = 'CERRADA'
+  WHERE e.corr_pe = 2 AND e.ciclo_actual = 5
+    AND SUBSTRING(e.cod_estudiante FROM 1 FOR 4) = '2024'
+    AND m.estado = 'CERRADA'
     AND md.nota_final IS NOT NULL AND md.resultado <> 'RETIRADO'
   GROUP BY e.cod_estudiante, e.apellidos_nombres
 ), ranking AS (

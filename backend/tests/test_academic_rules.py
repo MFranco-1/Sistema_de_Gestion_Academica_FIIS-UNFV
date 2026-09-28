@@ -9,6 +9,7 @@ from app import models
 from app.crud import (
     _cumple_regla_avance,
     _curso_relevante_periodo,
+    _limite_tercio,
     _motivo_bloqueo_oferta,
     _ventana_suspension_trica,
 )
@@ -20,6 +21,9 @@ from app.migrations import (
 
 
 class AcademicRulesTest(unittest.TestCase):
+    def test_upper_third_is_exactly_one_third_rounded_up(self):
+        self.assertEqual([_limite_tercio(n) for n in (0, 1, 2, 3, 4, 30, 31)], [0, 1, 1, 1, 2, 10, 11])
+
     def test_regular_period_parity_and_summer(self):
         self.assertTrue(_curso_relevante_periodo("I", 3, False))
         self.assertFalse(_curso_relevante_periodo("I", 4, False))
@@ -85,7 +89,7 @@ class NormalizedSchemaTest(unittest.TestCase):
         configure_mappers()
         for table in (
             "prematricula", "prematricula_detalle", "periodo_matricula_acceso",
-            "permiso", "perfil_permiso",
+            "permiso", "perfil_permiso", "constancia_matricula",
         ):
             self.assertIn(table, models.Base.metadata.tables)
         self.assertNotIn("prematricula", models.Estudiante.__table__.c)
@@ -100,6 +104,7 @@ class NormalizedSchemaTest(unittest.TestCase):
             {"docente.cod_fac", "docente.cod_esc", "docente.cod_docente"},
         )
         self.assertEqual(models.OfertaCurso.__table__.c.cod_docente.type.length, 12)
+        self.assertTrue(models.ConstanciaMatricula.__table__.c.contenido_pdf.type)
 
     def test_enrollment_keeps_one_record_per_student_and_period(self):
         constraints = {constraint.name for constraint in models.Matricula.__table__.constraints}
