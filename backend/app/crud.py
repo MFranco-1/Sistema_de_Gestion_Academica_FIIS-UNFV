@@ -1,4 +1,3 @@
-import json
 from datetime import date, datetime, timedelta
 
 from fastapi import HTTPException, status
@@ -269,17 +268,19 @@ def get_ranking_ciclo(
     }
 
 
-def _fases_matricula(periodo: models.PeriodoAcademico) -> dict[str, str]:
-    try:
-        datos = json.loads(periodo.matricula_accesos or "{}")
-        return {
-            str(ciclo): fase for ciclo, fase in datos.items()
-            if all(parte.isdigit() for parte in str(ciclo).split(":"))
-            and len(str(ciclo).split(":")) <= 2
-            and fase in {"CERRADA", "TERCIO", "TODOS"}
-        }
-    except (TypeError, ValueError, json.JSONDecodeError):
-        return {}
+def _ventana_suspension_trica(
+    fecha_tercera: date, periodos: list, fecha_objetivo: date,
+) -> tuple[list, object | None, bool]:
+    regulares_siguientes = [
+        periodo for periodo in periodos
+        if periodo.tipo_periodo != "VERANO" and periodo.fecha_inicio > fecha_tercera
+    ]
+    periodos_suspension = regulares_siguientes[:2]
+    periodo_retorno = regulares_siguientes[2] if len(regulares_siguientes) > 2 else None
+    activa = fecha_objetivo > fecha_tercera and (
+        periodo_retorno is None or fecha_objetivo < periodo_retorno.fecha_inicio
+    )
+    return periodos_suspension, periodo_retorno, activa
 
 
 def _sancion_trica(
@@ -360,15 +361,8 @@ def _sancion_trica(
         # Si existe reincidencia después de cumplir la baja, cada nuevo grupo
         # de tres desaprobaciones vuelve a generar dos semestres de suspensión.
         tercera = desaprobaciones[(len(desaprobaciones) // 3) * 3 - 1]
-        regulares_siguientes = [
-            periodo for periodo in periodos
-            if periodo.tipo_periodo != "VERANO"
-            and periodo.fecha_inicio > tercera[2]
-        ]
-        periodos_suspension = regulares_siguientes[:2]
-        periodo_retorno = regulares_siguientes[2] if len(regulares_siguientes) > 2 else None
-        activa = objetivo.fecha_inicio > tercera[2] and (
-            periodo_retorno is None or objetivo.fecha_inicio < periodo_retorno.fecha_inicio
+        periodos_suspension, periodo_retorno, activa = _ventana_suspension_trica(
+            tercera[2], periodos, objetivo.fecha_inicio,
         )
         if activa:
             sanciones.append({
@@ -399,8 +393,11 @@ def get_estado_acceso_matricula(
     periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=cod_periodo).first()
     if not periodo:
         raise HTTPException(status_code=404, detail="El período académico no existe.")
-    fases = _fases_matricula(periodo)
-    fase = fases.get(f"{corr_pe}:{ciclo}", fases.get(str(ciclo), "CERRADA"))
+    acceso = db.query(models.PeriodoMatriculaAcceso).filter_by(
+        cod_periodo=cod_periodo, cod_fac=cod_fac, cod_esc=cod_esc,
+        corr_pe=corr_pe, ciclo=ciclo,
+    ).first()
+    fase = acceso.fase if acceso else "CERRADA"
     ranking = get_ranking_ciclo(db, cod_periodo, ciclo, corr_pe, cod_fac, cod_esc)
     fila = next((item for item in ranking["estudiantes"] if item["cod_estudiante"] == cod_estudiante), None)
     pertenece_tercio = bool(fila and fila["tercio_superior"])
@@ -445,16 +442,30 @@ def get_estado_acceso_matricula(
 
 def actualizar_acceso_matricula(
     db: Session, cod_periodo: str, ciclo: int, datos: schemas.MatriculaAccesoUpdate,
-    corr_pe: int = 2,
+    corr_pe: int = 2, cod_fac: int = 1, cod_esc: int = 1,
 ):
     periodo = db.query(models.PeriodoAcademico).filter_by(cod_periodo=cod_periodo).first()
     if not periodo:
         raise HTTPException(status_code=404, detail="El período académico no existe.")
-    fases = _fases_matricula(periodo)
-    fases[f"{corr_pe}:{ciclo}"] = datos.fase
-    periodo.matricula_accesos = json.dumps(fases, separators=(",", ":"), sort_keys=True)
+    if not db.query(models.PlanEstudio).filter_by(
+        cod_fac=cod_fac, cod_esc=cod_esc, corr_pe=corr_pe,
+    ).first():
+        raise HTTPException(status_code=404, detail="La malla seleccionada no existe.")
+    acceso = db.query(models.PeriodoMatriculaAcceso).filter_by(
+        cod_periodo=cod_periodo, cod_fac=cod_fac, cod_esc=cod_esc,
+        corr_pe=corr_pe, ciclo=ciclo,
+    ).first()
+    if acceso:
+        acceso.fase = datos.fase
+    else:
+        db.add(models.PeriodoMatriculaAcceso(
+            cod_periodo=cod_periodo, cod_fac=cod_fac, cod_esc=cod_esc,
+            corr_pe=corr_pe, ciclo=ciclo, fase=datos.fase,
+        ))
     _commit(db, "No se pudo actualizar la apertura de matrícula.")
-    return get_estado_acceso_matricula(db, cod_periodo, ciclo, corr_pe=corr_pe)
+    return get_estado_acceso_matricula(
+        db, cod_periodo, ciclo, corr_pe=corr_pe, cod_fac=cod_fac, cod_esc=cod_esc,
+    )
 
 
 def get_programacion(
@@ -1219,6 +1230,36 @@ def _aprobados_estudiante(db: Session, codigo: str) -> set[str]:
     }
 
 
+def _curso_relevante_periodo(tipo_periodo: str, semestre: int, pendiente: bool) -> bool:
+    if tipo_periodo == "VERANO":
+        return pendiente
+    return semestre % 2 == (1 if tipo_periodo == "I" else 0)
+
+
+def _motivo_bloqueo_oferta(
+    estado_estudiante: str, ya_matriculado: bool, curso_aprobado: bool,
+    semestre_curso: int, ciclo_actual: int, requisitos_faltantes: set[str],
+    matriculados: int, vacantes: int, horario_completo: bool, misma_aula: bool,
+) -> str:
+    if estado_estudiante != "ACTIVO":
+        return "El estudiante no se encuentra activo."
+    if ya_matriculado:
+        return "El estudiante ya registró su matrícula en este período."
+    if curso_aprobado:
+        return "Curso aprobado anteriormente."
+    if semestre_curso > ciclo_actual:
+        return "Pertenece a un ciclo posterior."
+    if requisitos_faltantes:
+        return "Falta aprobar: " + ", ".join(sorted(requisitos_faltantes))
+    if matriculados >= vacantes:
+        return "No quedan vacantes."
+    if not horario_completo:
+        return "HORARIO_INCOMPLETO"
+    if not misma_aula:
+        return "La teoría y la práctica deben dictarse en la misma aula."
+    return ""
+
+
 def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
     estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
     if not estudiante:
@@ -1309,32 +1350,18 @@ def get_ofertas_estudiante(db: Session, codigo: str, cod_periodo: str):
         minutos_teoria = sum(_minutos(s.hora_fin) - _minutos(s.hora_inicio) for s in sesiones if s.tipo_sesion == "T")
         minutos_practica = sum(_minutos(s.hora_fin) - _minutos(s.hora_inicio) for s in sesiones if s.tipo_sesion == "P")
         es_pendiente = curso.cod_curso in desaprobados
-        if periodo.tipo_periodo == "VERANO":
-            relevante_periodo = es_pendiente
-        elif periodo.tipo_periodo == "I":
-            relevante_periodo = curso.semestre % 2 == 1
-        else:
-            relevante_periodo = curso.semestre % 2 == 0
-        if not relevante_periodo:
+        if not _curso_relevante_periodo(periodo.tipo_periodo, curso.semestre, es_pendiente):
             continue
         faltantes = requisitos_por_curso.get(curso.cod_curso, set()) - aprobados
-        motivo = ""
-        if estudiante.estado != "ACTIVO":
-            motivo = "El estudiante no se encuentra activo."
-        elif matricula_periodo:
-            motivo = "El estudiante ya registró su matrícula en este período."
-        elif curso.cod_curso in aprobados:
-            motivo = "Curso aprobado anteriormente."
-        elif curso.semestre > estudiante.ciclo_actual:
-            motivo = "Pertenece a un ciclo posterior."
-        elif faltantes:
-            motivo = "Falta aprobar: " + ", ".join(sorted(faltantes))
-        elif matriculados >= oferta.vacantes:
-            motivo = "No quedan vacantes."
-        elif minutos_teoria != curso.ht * 50 or minutos_practica != curso.hp * 50:
+        motivo = _motivo_bloqueo_oferta(
+            estudiante.estado, bool(matricula_periodo), curso.cod_curso in aprobados,
+            curso.semestre, estudiante.ciclo_actual, faltantes,
+            matriculados, oferta.vacantes,
+            minutos_teoria == curso.ht * 50 and minutos_practica == curso.hp * 50,
+            len({s.aula for s in sesiones}) <= 1,
+        )
+        if motivo == "HORARIO_INCOMPLETO":
             motivo = f"Horario incompleto: la malla exige {curso.ht} h teóricas y {curso.hp} h prácticas."
-        elif len({s.aula for s in sesiones}) > 1:
-            motivo = "La teoría y la práctica deben dictarse en la misma aula."
         resultado.append({
             "id_oferta": oferta.id_oferta, "cod_periodo": oferta.cod_periodo,
             "corr_pe": oferta.corr_pe, "cod_curso": oferta.cod_curso,
@@ -1492,7 +1519,11 @@ def crear_matricula(
             id_matricula=matricula.id_matricula, id_oferta=id_oferta,
             resultado="MATRICULADO",
         ))
-    estudiante.prematricula = ""
+    prematricula = db.query(models.Prematricula).filter_by(
+        cod_estudiante=estudiante.cod_estudiante,
+    ).first()
+    if prematricula:
+        db.delete(prematricula)
     _commit(db, "No se pudo registrar la matrícula por un conflicto académico.")
     return next(
         item for item in get_matriculas_estudiante(db, estudiante.cod_estudiante)
@@ -1568,16 +1599,17 @@ def get_matriculas_estudiante(db: Session, codigo: str):
 
 
 def get_prematricula(db: Session, codigo: str):
-    estudiante = db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first()
-    if not estudiante:
+    if not db.query(models.Estudiante).filter_by(cod_estudiante=codigo).first():
         raise HTTPException(status_code=404, detail="El estudiante no existe.")
-    if not estudiante.prematricula:
+    prematricula = db.query(models.Prematricula).filter_by(
+        cod_estudiante=codigo,
+    ).first()
+    if not prematricula:
         return {"cod_periodo": "", "ofertas": []}
-    try:
-        datos = json.loads(estudiante.prematricula)
-        return {"cod_periodo": str(datos.get("cod_periodo", "")), "ofertas": [int(x) for x in datos.get("ofertas", [])]}
-    except (ValueError, TypeError, json.JSONDecodeError):
-        return {"cod_periodo": "", "ofertas": []}
+    return {
+        "cod_periodo": prematricula.cod_periodo,
+        "ofertas": sorted(detalle.id_oferta for detalle in prematricula.detalles),
+    }
 
 
 def guardar_prematricula(db: Session, codigo: str, datos: schemas.Prematricula):
@@ -1596,7 +1628,25 @@ def guardar_prematricula(db: Session, codigo: str, datos: schemas.Prematricula):
     codigos = [oferta.cod_curso for oferta in ofertas]
     if len(codigos) != len(set(codigos)):
         raise HTTPException(status_code=409, detail="La prematrícula solo admite una sección por curso.")
-    estudiante.prematricula = json.dumps({"cod_periodo": datos.cod_periodo, "ofertas": datos.ofertas})
+    prematricula = db.query(models.Prematricula).filter_by(
+        cod_estudiante=codigo,
+    ).first()
+    if not prematricula:
+        prematricula = models.Prematricula(
+            cod_estudiante=codigo, cod_periodo=datos.cod_periodo,
+        )
+        db.add(prematricula)
+        db.flush()
+    else:
+        prematricula.cod_periodo = datos.cod_periodo
+        db.query(models.PrematriculaDetalle).filter_by(
+            id_prematricula=prematricula.id_prematricula,
+        ).delete(synchronize_session=False)
+    for id_oferta in datos.ofertas:
+        db.add(models.PrematriculaDetalle(
+            id_prematricula=prematricula.id_prematricula,
+            id_oferta=id_oferta,
+        ))
     _commit(db, "No se pudo guardar la prematrícula.")
     return {"mensaje": "Prematrícula guardada como guía. La matrícula oficial no fue modificada."}
 
@@ -1661,15 +1711,45 @@ def registrar_resultados_lote(
     return {"mensaje": "Notas y resultados guardados correctamente."}
 
 
+def _cumple_regla_avance(
+    tipo_periodo: str, resultados: list[tuple[str, int]],
+) -> bool:
+    """Valida el avance: período regular, cierre total y al menos 50 % de créditos aprobados."""
+    evaluados = [(resultado, creditos) for resultado, creditos in resultados if resultado != "RETIRADO"]
+    if tipo_periodo == "VERANO" or not evaluados:
+        return False
+    if any(resultado == "MATRICULADO" for resultado, _ in evaluados):
+        return False
+    aprobados = [(resultado, creditos) for resultado, creditos in evaluados if resultado == "APROBADO"]
+    creditos_totales = sum(creditos for _, creditos in evaluados)
+    creditos_aprobados = sum(creditos for _, creditos in aprobados)
+    return len(aprobados) >= 2 and creditos_aprobados * 2 >= creditos_totales
+
+
 def _cerrar_matricula_si_corresponde(db: Session, id_matricula: int) -> None:
     matricula = db.query(models.Matricula).filter_by(id_matricula=id_matricula).first()
     if not matricula:
         return
-    detalles = db.query(models.MatriculaDetalle).filter_by(id_matricula=id_matricula).all()
-    if not detalles or any(item.resultado == "MATRICULADO" for item in detalles):
+    filas = (
+        db.query(models.MatriculaDetalle, models.Curso)
+        .join(models.OfertaCurso, models.OfertaCurso.id_oferta == models.MatriculaDetalle.id_oferta)
+        .join(models.Curso, and_(
+            models.Curso.cod_fac == models.OfertaCurso.cod_fac,
+            models.Curso.cod_esc == models.OfertaCurso.cod_esc,
+            models.Curso.corr_pe == models.OfertaCurso.corr_pe,
+            models.Curso.cod_curso == models.OfertaCurso.cod_curso,
+        ))
+        .filter(models.MatriculaDetalle.id_matricula == id_matricula)
+        .all()
+    )
+    if not filas or any(detalle.resultado == "MATRICULADO" for detalle, _ in filas):
         return
     matricula.estado = "CERRADA"
-    if any(item.resultado == "APROBADO" for item in detalles):
+    periodo = db.query(models.PeriodoAcademico).filter_by(
+        cod_periodo=matricula.cod_periodo,
+    ).one()
+    resultados = [(detalle.resultado, curso.cred) for detalle, curso in filas]
+    if _cumple_regla_avance(periodo.tipo_periodo, resultados):
         estudiante = db.query(models.Estudiante).filter_by(
             cod_estudiante=matricula.cod_estudiante,
         ).first()
@@ -1697,7 +1777,7 @@ def autenticar(db: Session, nombre_usuario: str, clave: str):
     perfiles_disponibles = sorted(
         (
             perfil for perfil in usuario.perfiles
-            if any(permiso for permiso in perfil.permisos.split(",") if permiso)
+            if perfil.permisos
         ),
         key=lambda perfil: perfil.codigo,
     )
@@ -1726,7 +1806,8 @@ def _resolver_perfiles(db: Session, codigos: list[str]):
 
 def _validar_vinculo_estudiante(db: Session, codigo: str | None, perfiles: list[models.Perfil]):
     tiene_perfil = any(
-        "MATRICULA_PROPIA" in perfil.permisos.split(",") for perfil in perfiles
+        any(permiso.codigo == "MATRICULA_PROPIA" for permiso in perfil.permisos)
+        for perfil in perfiles
     )
     if tiene_perfil and not codigo:
         raise HTTPException(status_code=422, detail="El perfil Estudiante requiere vincular un estudiante.")
@@ -1800,9 +1881,21 @@ def get_perfiles(db: Session):
         "id_perfil": perfil.id_perfil,
         "codigo": perfil.codigo,
         "nombre": perfil.nombre,
-        "permisos": sorted(item for item in perfil.permisos.split(",") if item),
+        "permisos": auth.codigos_permisos(perfil),
         "total_usuarios": total,
     } for perfil, total in filas]
+
+
+def _resolver_permisos(db: Session, codigos: list[str]) -> list[models.Permiso]:
+    normalizados = sorted(set(codigos))
+    if set(normalizados) - auth.PERMISOS_VALIDOS:
+        raise HTTPException(status_code=422, detail="Uno o más permisos no son válidos.")
+    permisos = db.query(models.Permiso).filter(
+        models.Permiso.codigo.in_(normalizados),
+    ).all()
+    if len(permisos) != len(normalizados):
+        raise HTTPException(status_code=422, detail="Uno o más permisos no están registrados.")
+    return permisos
 
 
 def editar_perfil(db: Session, id_perfil: int, datos: schemas.PerfilUpdate):
@@ -1810,22 +1903,15 @@ def editar_perfil(db: Session, id_perfil: int, datos: schemas.PerfilUpdate):
     if not perfil:
         raise HTTPException(status_code=404, detail="El perfil no existe.")
     perfil.nombre = datos.nombre
-    permisos = sorted(set(datos.permisos))
-    invalidos = set(permisos) - auth.PERMISOS_VALIDOS
-    if invalidos:
-        raise HTTPException(status_code=422, detail="Uno o más permisos no son válidos.")
-    perfil.permisos = ",".join(permisos)
+    perfil.permisos = _resolver_permisos(db, datos.permisos)
     _commit(db, "Ya existe otro perfil con ese nombre.")
     return next(item for item in get_perfiles(db) if item["id_perfil"] == id_perfil)
 
 
 def crear_perfil(db: Session, datos: schemas.PerfilCreate):
-    permisos = sorted(set(datos.permisos))
-    if set(permisos) - auth.PERMISOS_VALIDOS:
-        raise HTTPException(status_code=422, detail="Uno o más permisos no son válidos.")
-    perfil = models.Perfil(
-        codigo=datos.codigo, nombre=datos.nombre, permisos=",".join(permisos),
-    )
+    permisos = _resolver_permisos(db, datos.permisos)
+    perfil = models.Perfil(codigo=datos.codigo, nombre=datos.nombre)
+    perfil.permisos = permisos
     db.add(perfil)
     _commit(db, "El código o nombre del perfil ya existe.")
     db.refresh(perfil)

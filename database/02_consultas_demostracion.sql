@@ -178,3 +178,93 @@ WITH promedios AS (
 SELECT *, puesto <= CEIL(total_estudiantes / 3.0) AS tercio_superior
 FROM ranking
 ORDER BY puesto;
+
+-- 14. Cursos habilitados para un estudiante según sus prerrequisitos aprobados.
+SELECT c.cod_curso, c.den_curso, c.semestre, c.cred
+FROM estudiante e
+JOIN curso c ON c.cod_fac = e.cod_fac AND c.cod_esc = e.cod_esc
+            AND c.corr_pe = e.corr_pe
+WHERE e.cod_estudiante = '2024035774'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM curso_prerequisito cp
+      WHERE cp.cod_fac = c.cod_fac AND cp.cod_esc = c.cod_esc
+        AND cp.corr_pe = c.corr_pe AND cp.cod_curso = c.cod_curso
+        AND NOT EXISTS (
+            SELECT 1
+            FROM matricula m
+            JOIN matricula_detalle md ON md.id_matricula = m.id_matricula
+            JOIN oferta_curso o ON o.id_oferta = md.id_oferta
+            WHERE m.cod_estudiante = e.cod_estudiante
+              AND m.estado <> 'ANULADA' AND md.resultado = 'APROBADO'
+              AND o.cod_curso = cp.cod_curso_prerequisito
+        )
+  )
+ORDER BY c.semestre, c.cod_curso;
+
+-- 15. Cursos pendientes: desaprobados que no fueron aprobados posteriormente.
+SELECT DISTINCT c.cod_curso, c.den_curso, c.semestre
+FROM matricula m
+JOIN matricula_detalle md ON md.id_matricula = m.id_matricula
+JOIN oferta_curso o ON o.id_oferta = md.id_oferta
+JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+            AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+WHERE m.cod_estudiante = '2024035774'
+  AND m.estado <> 'ANULADA' AND md.resultado = 'DESAPROBADO'
+  AND NOT EXISTS (
+      SELECT 1
+      FROM matricula m2
+      JOIN matricula_detalle md2 ON md2.id_matricula = m2.id_matricula
+      JOIN oferta_curso o2 ON o2.id_oferta = md2.id_oferta
+      WHERE m2.cod_estudiante = m.cod_estudiante
+        AND m2.estado <> 'ANULADA' AND md2.resultado = 'APROBADO'
+        AND o2.cod_curso = o.cod_curso
+  )
+ORDER BY c.semestre, c.cod_curso;
+
+-- 16. Vacantes reales por curso y sección.
+SELECT o.cod_periodo, o.cod_curso, o.cod_seccion, o.vacantes AS capacidad,
+       COUNT(md.id_matricula) FILTER (WHERE md.resultado <> 'RETIRADO') AS matriculados,
+       GREATEST(
+           o.vacantes - COUNT(md.id_matricula) FILTER (WHERE md.resultado <> 'RETIRADO'), 0
+       ) AS vacantes_disponibles
+FROM oferta_curso o
+LEFT JOIN matricula_detalle md ON md.id_oferta = o.id_oferta
+WHERE o.cod_periodo = '2026-II' AND o.activo = TRUE
+GROUP BY o.id_oferta
+ORDER BY o.cod_curso, o.cod_seccion;
+
+-- 17. Tercera desaprobación y dos semestres regulares de suspensión (trica).
+WITH desaprobaciones AS (
+    SELECT m.cod_estudiante, o.cod_curso, c.den_curso, p.cod_periodo,
+           p.fecha_inicio,
+           ROW_NUMBER() OVER (
+               PARTITION BY m.cod_estudiante, o.corr_pe, o.cod_curso
+               ORDER BY p.fecha_inicio, m.id_matricula
+           ) AS intento_desaprobado
+    FROM matricula m
+    JOIN matricula_detalle md ON md.id_matricula = m.id_matricula
+    JOIN oferta_curso o ON o.id_oferta = md.id_oferta
+    JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+                AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+    JOIN periodo_academico p ON p.cod_periodo = m.cod_periodo
+    WHERE m.estado <> 'ANULADA' AND md.resultado = 'DESAPROBADO'
+), tricas AS (
+    SELECT * FROM desaprobaciones WHERE MOD(intento_desaprobado, 3) = 0
+)
+SELECT t.cod_estudiante, t.cod_curso, t.den_curso,
+       t.cod_periodo AS periodo_tercera_desaprobacion,
+       ARRAY(
+           SELECT p2.cod_periodo
+           FROM periodo_academico p2
+           WHERE p2.tipo_periodo <> 'VERANO' AND p2.fecha_inicio > t.fecha_inicio
+           ORDER BY p2.fecha_inicio LIMIT 2
+       ) AS periodos_suspension,
+       (
+           SELECT p3.cod_periodo
+           FROM periodo_academico p3
+           WHERE p3.tipo_periodo <> 'VERANO' AND p3.fecha_inicio > t.fecha_inicio
+           ORDER BY p3.fecha_inicio OFFSET 2 LIMIT 1
+       ) AS periodo_retorno
+FROM tricas t
+ORDER BY t.cod_estudiante, t.fecha_inicio;

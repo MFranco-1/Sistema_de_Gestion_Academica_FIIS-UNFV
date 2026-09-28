@@ -22,9 +22,23 @@ PERMISOS_VALIDOS = {
     "GESTION_ESTUDIANTES", "GESTION_USUARIOS", "GESTION_PERFILES",
     "MATRICULA_PROPIA", "GESTION_MATRICULAS",
 }
+NOMBRES_PERMISOS = {
+    "GESTION_CURRICULAR": "Gestión curricular",
+    "PLANA_DOCENTE": "Plana docente",
+    "MANTENIMIENTO_ACADEMICO": "Mantenimiento académico",
+    "GESTION_ESTUDIANTES": "Gestión de estudiantes",
+    "GESTION_USUARIOS": "Gestión de usuarios",
+    "GESTION_PERFILES": "Gestión de perfiles",
+    "MATRICULA_PROPIA": "Matrícula propia",
+    "GESTION_MATRICULAS": "Gestión de matrículas",
+}
 PERMISOS_ADMIN = sorted(PERMISOS_VALIDOS - {"MATRICULA_PROPIA"})
 PERMISOS_ESTUDIANTE = ["MATRICULA_PROPIA"]
 security = HTTPBearer(auto_error=False)
+
+
+def codigos_permisos(perfil: models.Perfil) -> list[str]:
+    return sorted(permiso.codigo for permiso in perfil.permisos)
 
 
 @dataclass
@@ -103,14 +117,14 @@ def get_current_user(
         raise HTTPException(status_code=401, detail="El usuario no está disponible.")
     perfiles_habilitados = [
         perfil for perfil in user.perfiles
-        if any(permiso for permiso in perfil.permisos.split(",") if permiso)
+        if perfil.permisos
     ]
     perfiles = sorted(perfil.codigo for perfil in perfiles_habilitados)
     perfil_activo = payload.get("perfil")
     if perfil_activo not in perfiles:
         raise HTTPException(status_code=403, detail="El perfil activo ya no está asignado.")
     perfil_obj = next(perfil for perfil in perfiles_habilitados if perfil.codigo == perfil_activo)
-    permisos = sorted({item for item in perfil_obj.permisos.split(",") if item})
+    permisos = codigos_permisos(perfil_obj)
     return UsuarioActual(
         user.id_usuario, user.nombre_usuario, user.nombre_mostrar,
         user.cod_estudiante, perfil_activo, perfiles,
@@ -156,6 +170,15 @@ def require_any_permission(*permissions: str):
 
 
 def ensure_security_data(db: Session) -> None:
+    permisos = {}
+    for codigo in sorted(PERMISOS_VALIDOS):
+        permiso = db.query(models.Permiso).filter_by(codigo=codigo).first()
+        if not permiso:
+            permiso = models.Permiso(codigo=codigo, nombre=NOMBRES_PERMISOS[codigo])
+            db.add(permiso)
+            db.flush()
+        permisos[codigo] = permiso
+
     perfiles = {}
     defaults = (
         (PERFIL_ADMIN, "Administrador", PERMISOS_ADMIN),
@@ -167,13 +190,12 @@ def ensure_security_data(db: Session) -> None:
     for codigo, nombre, permisos_default in defaults:
         perfil = db.query(models.Perfil).filter_by(codigo=codigo).first()
         if not perfil:
-            perfil = models.Perfil(
-                codigo=codigo, nombre=nombre, permisos=",".join(permisos_default),
-            )
+            perfil = models.Perfil(codigo=codigo, nombre=nombre)
+            perfil.permisos = [permisos[item] for item in permisos_default]
             db.add(perfil)
             db.flush()
         elif not perfil.permisos:
-            perfil.permisos = ",".join(permisos_default)
+            perfil.permisos = [permisos[item] for item in permisos_default]
         perfiles[codigo] = perfil
     admin_name = os.getenv("ADMIN_USERNAME", "admin").strip().lower()
     configured_password = os.getenv("ADMIN_PASSWORD")

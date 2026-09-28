@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from app import auth, models
 from app.database import Base, SessionLocal, engine
+from app.migrations import run_migrations
 
 
 FACULTAD = 1
@@ -60,9 +61,6 @@ def migrar_periodos_y_ofertas() -> None:
     with engine.begin() as connection:
         connection.exec_driver_sql("ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS anio INTEGER")
         connection.exec_driver_sql("ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS tipo_periodo VARCHAR(10)")
-        connection.exec_driver_sql(
-            "ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS matricula_accesos VARCHAR(500) NOT NULL DEFAULT ''"
-        )
         connection.execute(text("""
             UPDATE periodo_academico
             SET anio = CAST(SUBSTRING(cod_periodo FROM 1 FOR 4) AS INTEGER),
@@ -155,21 +153,28 @@ def inicializar_estudiantes_primer_ciclo() -> None:
 
 
 def reparar_avance_ciclos() -> None:
-    """Repara matrículas cerradas antiguas que no actualizaron el ciclo del alumno."""
+    """Repara avances válidos: cierre regular, dos aprobados y 50 % de créditos."""
     with engine.begin() as connection:
         connection.execute(text("""
-            WITH avances AS (
-                SELECT m.cod_estudiante,
-                       LEAST(MAX(m.ciclo_matricula) + 1, 10) AS ciclo_correspondiente
+            WITH matriculas_validas AS (
+                SELECT m.id_matricula, m.cod_estudiante, m.ciclo_matricula
                 FROM matricula m
-                WHERE m.estado = 'CERRADA'
-                  AND EXISTS (
-                      SELECT 1
-                      FROM matricula_detalle md
-                      WHERE md.id_matricula = m.id_matricula
-                        AND md.resultado = 'APROBADO'
-                  )
-                GROUP BY m.cod_estudiante
+                JOIN periodo_academico p ON p.cod_periodo = m.cod_periodo
+                JOIN matricula_detalle md ON md.id_matricula = m.id_matricula
+                JOIN oferta_curso o ON o.id_oferta = md.id_oferta
+                JOIN curso c ON c.cod_fac = o.cod_fac AND c.cod_esc = o.cod_esc
+                            AND c.corr_pe = o.corr_pe AND c.cod_curso = o.cod_curso
+                WHERE m.estado = 'CERRADA' AND p.tipo_periodo <> 'VERANO'
+                GROUP BY m.id_matricula, m.cod_estudiante, m.ciclo_matricula
+                HAVING COUNT(*) FILTER (WHERE md.resultado = 'MATRICULADO') = 0
+                   AND COUNT(*) FILTER (WHERE md.resultado = 'APROBADO') >= 2
+                   AND 2 * COALESCE(SUM(c.cred) FILTER (WHERE md.resultado = 'APROBADO'), 0)
+                       >= COALESCE(SUM(c.cred) FILTER (WHERE md.resultado <> 'RETIRADO'), 0)
+            ), avances AS (
+                SELECT cod_estudiante,
+                       LEAST(MAX(ciclo_matricula) + 1, 10) AS ciclo_correspondiente
+                FROM matriculas_validas
+                GROUP BY cod_estudiante
             )
             UPDATE estudiante e
             SET ciclo_actual = a.ciclo_correspondiente
@@ -888,46 +893,9 @@ def seed_data(reset=False):
     if reset:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
-    # Una base anterior puede tener perfil sin la columna de permisos.
-    # Migrar antes de consultar perfiles; no elimina ni reinicia datos.
-    with engine.begin() as connection:
-        connection.exec_driver_sql(
-            "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
-        )
-        connection.exec_driver_sql(
-            "ALTER TABLE estudiante ADD COLUMN IF NOT EXISTS prematricula VARCHAR(1000) NOT NULL DEFAULT ''"
-        )
-        connection.exec_driver_sql(
-            "ALTER TABLE oferta_curso ADD COLUMN IF NOT EXISTS cod_docente VARCHAR(20)"
-        )
-        connection.exec_driver_sql(
-            "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_practicas INTEGER"
-        )
-        connection.exec_driver_sql(
-            "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_parcial INTEGER"
-        )
-        connection.exec_driver_sql(
-            "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_examen_final INTEGER"
-        )
-        connection.exec_driver_sql("""
-            UPDATE matricula_detalle
-            SET nota_practicas = COALESCE(nota_practicas, nota_final),
-                nota_parcial = COALESCE(nota_parcial, nota_final),
-                nota_examen_final = COALESCE(nota_examen_final, nota_final)
-            WHERE nota_final IS NOT NULL
-              AND (nota_practicas IS NULL OR nota_parcial IS NULL OR nota_examen_final IS NULL)
-        """)
-        connection.exec_driver_sql("""
-            UPDATE plan_estudio
-            SET den_plan = CASE
-                WHEN anio_plan = 2010 THEN 'Plan Curricular 2010'
-                WHEN anio_plan = 2019 THEN 'Plan de Estudios 2019'
-                ELSE den_plan
-            END
-            WHERE anio_plan IN (2010, 2019)
-        """)
-    migrar_periodos_y_ofertas()
     migrar_codigos_estudiante()
+    run_migrations(engine)
+    migrar_periodos_y_ofertas()
     inicializar_estudiantes_primer_ciclo()
     reparar_avance_ciclos()
     db = SessionLocal()

@@ -7,48 +7,11 @@ from sqlalchemy.orm import Session
 
 from app import auth, crud, models, schemas
 from app.database import SessionLocal, engine, get_db
+from app.migrations import run_migrations
 
 
 models.Base.metadata.create_all(bind=engine)
-with engine.begin() as migration_connection:
-    migration_connection.exec_driver_sql(
-        "ALTER TABLE perfil ADD COLUMN IF NOT EXISTS permisos VARCHAR(500) NOT NULL DEFAULT ''"
-    )
-    migration_connection.exec_driver_sql(
-        "ALTER TABLE estudiante ADD COLUMN IF NOT EXISTS prematricula VARCHAR(1000) NOT NULL DEFAULT ''"
-    )
-    migration_connection.exec_driver_sql(
-        "ALTER TABLE oferta_curso ADD COLUMN IF NOT EXISTS cod_docente VARCHAR(20)"
-    )
-    migration_connection.exec_driver_sql(
-        "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_practicas INTEGER"
-    )
-    migration_connection.exec_driver_sql(
-        "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_parcial INTEGER"
-    )
-    migration_connection.exec_driver_sql(
-        "ALTER TABLE matricula_detalle ADD COLUMN IF NOT EXISTS nota_examen_final INTEGER"
-    )
-    migration_connection.exec_driver_sql(
-        "ALTER TABLE periodo_academico ADD COLUMN IF NOT EXISTS matricula_accesos VARCHAR(500) NOT NULL DEFAULT ''"
-    )
-    migration_connection.exec_driver_sql("""
-        UPDATE matricula_detalle
-        SET nota_practicas = COALESCE(nota_practicas, nota_final),
-            nota_parcial = COALESCE(nota_parcial, nota_final),
-            nota_examen_final = COALESCE(nota_examen_final, nota_final)
-        WHERE nota_final IS NOT NULL
-          AND (nota_practicas IS NULL OR nota_parcial IS NULL OR nota_examen_final IS NULL)
-    """)
-    migration_connection.exec_driver_sql("""
-        UPDATE plan_estudio
-        SET den_plan = CASE
-            WHEN anio_plan = 2010 THEN 'Plan Curricular 2010'
-            WHEN anio_plan = 2019 THEN 'Plan de Estudios 2019'
-            ELSE den_plan
-        END
-        WHERE anio_plan IN (2010, 2019)
-    """)
+run_migrations(engine)
 with SessionLocal() as startup_db:
     auth.ensure_security_data(startup_db)
 
@@ -62,7 +25,7 @@ cors_origins.extend(
 app = FastAPI(
     title="Sistema de Gestión Académica FIIS",
     description="Consulta de planes, prerrequisitos, programación académica y plana docente.",
-    version="3.0.0",
+    version="3.1.0",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -75,13 +38,13 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.0.0"}
+    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.1.0"}
 
 
 def _sesion_dict(usuario, perfil_activo: str):
     perfiles_habilitados = [
         perfil for perfil in usuario.perfiles
-        if any(permiso for permiso in perfil.permisos.split(",") if permiso)
+        if perfil.permisos
     ]
     return {
         "id_usuario": usuario.id_usuario,
@@ -94,8 +57,8 @@ def _sesion_dict(usuario, perfil_activo: str):
             perfil.codigo: perfil.nombre for perfil in perfiles_habilitados
         },
         "permisos": sorted({
-            permiso for perfil in perfiles_habilitados if perfil.codigo == perfil_activo
-            for permiso in perfil.permisos.split(",") if permiso
+            permiso.codigo for perfil in perfiles_habilitados if perfil.codigo == perfil_activo
+            for permiso in perfil.permisos
         }),
     }
 
@@ -124,7 +87,7 @@ def cambiar_perfil(
         raise HTTPException(status_code=403, detail="El usuario no tiene asignado ese perfil.")
     usuario = db.query(models.Usuario).filter_by(id_usuario=actual.id_usuario).one()
     perfil = next(item for item in usuario.perfiles if item.codigo == datos.perfil)
-    if not any(permiso for permiso in perfil.permisos.split(",") if permiso):
+    if not perfil.permisos:
         raise HTTPException(status_code=403, detail="El perfil seleccionado no tiene permisos asignados.")
     return {
         "token": auth.create_token(usuario, datos.perfil),

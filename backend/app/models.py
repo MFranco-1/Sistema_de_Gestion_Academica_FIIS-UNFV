@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Boolean, CheckConstraint, Column, Date, ForeignKey, ForeignKeyConstraint,
-    Integer, String, Time, UniqueConstraint,
+    Index, Integer, String, Time, UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -127,11 +127,36 @@ class PeriodoAcademico(Base):
     fecha_inicio = Column(Date, nullable=False)
     fecha_fin = Column(Date, nullable=False)
     activo = Column(Boolean, nullable=False, default=True)
-    matricula_accesos = Column(String(500), nullable=False, default="")
     __table_args__ = (
         CheckConstraint("fecha_fin > fecha_inicio", name="ck_periodo_fechas"),
         CheckConstraint("anio BETWEEN 2000 AND 2100", name="ck_periodo_anio"),
         CheckConstraint("tipo_periodo IN ('I', 'II', 'VERANO')", name="ck_periodo_tipo"),
+    )
+
+
+class PeriodoMatriculaAcceso(Base):
+    __tablename__ = "periodo_matricula_acceso"
+    cod_periodo = Column(
+        String(10), ForeignKey("periodo_academico.cod_periodo", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    cod_fac = Column(Integer, primary_key=True)
+    cod_esc = Column(Integer, primary_key=True)
+    corr_pe = Column(Integer, primary_key=True)
+    ciclo = Column(Integer, primary_key=True)
+    fase = Column(String(10), nullable=False, default="CERRADA")
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["cod_fac", "cod_esc", "corr_pe"],
+            ["plan_estudio.cod_fac", "plan_estudio.cod_esc", "plan_estudio.corr_pe"],
+            name="fk_acceso_matricula_plan",
+            ondelete="CASCADE",
+        ),
+        CheckConstraint("ciclo BETWEEN 1 AND 10", name="ck_acceso_matricula_ciclo"),
+        CheckConstraint(
+            "fase IN ('CERRADA', 'TERCIO', 'TODOS')",
+            name="ck_acceso_matricula_fase",
+        ),
     )
 
 
@@ -212,7 +237,6 @@ class Estudiante(Base):
     corr_pe = Column(Integer, nullable=False)
     ciclo_actual = Column(Integer, nullable=False)
     estado = Column(String(12), nullable=False, default="ACTIVO")
-    prematricula = Column(String(1000), nullable=False, default="")
     __table_args__ = (
         ForeignKeyConstraint(
             ["cod_fac", "cod_esc", "corr_pe"],
@@ -236,19 +260,55 @@ class OfertaCurso(Base):
     cod_seccion = Column(String(10), nullable=False, default="A")
     vacantes = Column(Integer, nullable=False, default=30)
     activo = Column(Boolean, nullable=False, default=True)
-    cod_docente = Column(String(20), nullable=True)
+    cod_docente = Column(String(12), nullable=True)
     __table_args__ = (
         ForeignKeyConstraint(
             ["cod_fac", "cod_esc", "corr_pe", "cod_curso"],
             ["curso.cod_fac", "curso.cod_esc", "curso.corr_pe", "curso.cod_curso"],
             name="fk_oferta_curso",
         ),
+        ForeignKeyConstraint(
+            ["cod_fac", "cod_esc", "cod_docente"],
+            ["docente.cod_fac", "docente.cod_esc", "docente.cod_docente"],
+            name="fk_oferta_docente",
+        ),
         UniqueConstraint(
             "cod_periodo", "cod_fac", "cod_esc", "corr_pe", "cod_curso", "cod_seccion",
             name="uq_oferta_periodo_curso_seccion",
         ),
         CheckConstraint("vacantes > 0", name="ck_oferta_vacantes"),
+        Index("ix_oferta_docente", "cod_fac", "cod_esc", "cod_docente"),
     )
+
+
+class Prematricula(Base):
+    __tablename__ = "prematricula"
+    id_prematricula = Column(Integer, primary_key=True, autoincrement=True)
+    cod_estudiante = Column(
+        String(10), ForeignKey("estudiante.cod_estudiante", ondelete="CASCADE"),
+        nullable=False, unique=True,
+    )
+    cod_periodo = Column(
+        String(10), ForeignKey("periodo_academico.cod_periodo", ondelete="CASCADE"),
+        nullable=False,
+    )
+    detalles = relationship(
+        "PrematriculaDetalle", cascade="all, delete-orphan", back_populates="prematricula",
+    )
+
+
+class PrematriculaDetalle(Base):
+    __tablename__ = "prematricula_detalle"
+    id_prematricula = Column(
+        Integer, ForeignKey("prematricula.id_prematricula", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    id_oferta = Column(
+        Integer, ForeignKey("oferta_curso.id_oferta", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    prematricula = relationship("Prematricula", back_populates="detalles")
+    __table_args__ = (Index("ix_prematricula_detalle_oferta", "id_oferta"),)
 
 
 class Matricula(Base):
@@ -297,13 +357,31 @@ class MatriculaDetalle(Base):
     )
 
 
+class Permiso(Base):
+    __tablename__ = "permiso"
+    codigo = Column(String(40), primary_key=True)
+    nombre = Column(String(100), nullable=False)
+    perfiles = relationship("Perfil", secondary="perfil_permiso", back_populates="permisos")
+
+
 class Perfil(Base):
     __tablename__ = "perfil"
     id_perfil = Column(Integer, primary_key=True, autoincrement=True)
     codigo = Column(String(20), nullable=False, unique=True)
     nombre = Column(String(50), nullable=False, unique=True)
-    permisos = Column(String(500), nullable=False, default="")
+    permisos = relationship("Permiso", secondary="perfil_permiso", back_populates="perfiles")
     usuarios = relationship("Usuario", secondary="usuario_perfil", back_populates="perfiles")
+
+
+class PerfilPermiso(Base):
+    __tablename__ = "perfil_permiso"
+    id_perfil = Column(
+        Integer, ForeignKey("perfil.id_perfil", ondelete="CASCADE"), primary_key=True,
+    )
+    cod_permiso = Column(
+        String(40), ForeignKey("permiso.codigo", ondelete="RESTRICT"), primary_key=True,
+    )
+    __table_args__ = (Index("ix_perfil_permiso_codigo", "cod_permiso"),)
 
 
 class Usuario(Base):

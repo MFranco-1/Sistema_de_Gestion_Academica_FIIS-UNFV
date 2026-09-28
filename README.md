@@ -14,7 +14,7 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - Portal estudiantil con Mi matrícula, Historial y Mi malla; muestra créditos y prerrequisitos aplicables.
 - El alumno ve únicamente el período regular vigente o el siguiente compatible con la paridad de su ciclo.
 - Programación completa A/B/C para todos los ciclos I–X y todos los períodos regulares; verano se abre por curso y sección solo cuando existe demanda.
-- Cierre de notas en lote: 0–10 desaprobado, 11–20 aprobado y avance automático de ciclo cuando corresponde.
+- Cierre de notas en lote: 0–10 desaprobado y 11–20 aprobado. El ciclo avanza solo al cerrar un período regular con al menos dos cursos y 50 % de los créditos aprobados; verano no genera avance.
 - Registro de notas y resultados para cursos aprobados, desaprobados o retirados.
 - Login institucional con perfiles Administrador y Estudiante, cambio de perfil dentro del panel y permisos por endpoint.
 - Administración separada de usuarios y perfiles, con activación de cuentas, vínculo con estudiantes y nombres de perfil editables.
@@ -31,13 +31,15 @@ Aplicación web de la Facultad de Ingeniería Industrial y de Sistemas de la UNF
 - El historial presenta prácticas (40 %), parcial (30 %), examen final (30 %), promedio final, promedio aritmético y promedio ponderado.
 - Orden de mérito por ciclo y tercio superior calculado desde el último período regular cerrado con notas; verano no altera la prioridad.
 - Apertura de matrícula por período, malla y ciclo en tres fases: cerrada, solo tercio superior o todos; la prematrícula sigue disponible.
+- Suspensión automática por tercera desaprobación del mismo curso durante los dos semestres regulares siguientes, incluidos los veranos intermedios.
+- Prematrículas, fases de matrícula y permisos normalizados en tablas relacionadas, sin listas o documentos JSON como fuente operativa.
 - Los datos demostrativos incluyen cohortes en todos los ciclos y en las secciones A, B y C, con matrículas e historiales completos; las notas finales antiguas se conservan y completan sus componentes faltantes.
 - Perfiles institucionales adicionales: Jefe de departamento, Director de escuela y Administración.
 - Documentación interactiva de la API con Swagger.
 
 ## Modelo de datos
 
-El modelo mantiene diecisiete tablas:
+El modelo mantiene veintidós tablas:
 
 1. `facultad`
 2. `escuela`
@@ -46,16 +48,21 @@ El modelo mantiene diecisiete tablas:
 5. `curso`
 6. `curso_prerequisito`
 7. `periodo_academico`
-8. `horario_cabecera`
-9. `horario_detalle`
-10. `horario_curso`
-11. `estudiante`
-12. `oferta_curso`
-13. `matricula`
-14. `matricula_detalle`
-15. `perfil`
-16. `usuario`
-17. `usuario_perfil`
+8. `periodo_matricula_acceso`
+9. `horario_cabecera`
+10. `horario_detalle`
+11. `horario_curso`
+12. `estudiante`
+13. `oferta_curso`
+14. `prematricula`
+15. `prematricula_detalle`
+16. `matricula`
+17. `matricula_detalle`
+18. `permiso`
+19. `perfil`
+20. `perfil_permiso`
+21. `usuario`
+22. `usuario_perfil`
 
 No existe una tabla `plan_semestre`. Los semestres de cada malla se obtienen con `SELECT DISTINCT curso.semestre`.
 
@@ -108,6 +115,18 @@ npm start
 ```
 
 Interfaz: `http://localhost:4200`.
+
+## Pruebas
+
+```powershell
+cd backend
+python -m unittest discover -s tests -p "test_*.py" -v
+
+cd ..\frontend
+npm run build
+```
+
+`backend/tests/integration_smoke.py` comprueba la migración completa, autenticación, permisos, prematrícula, fases, vacantes y la FK de docentes. Por seguridad exige `ACADEMIC_TEST_DATABASE=1` y debe ejecutarse únicamente con `DATABASE_URL` apuntando a una base PostgreSQL temporal descartable.
 
 ## Despliegue
 
@@ -186,8 +205,11 @@ Las mutaciones usan transacciones. Los errores de validación se devuelven como 
 ## Scripts de base de datos
 
 - `database/01_esquema.sql`: definición física completa de las tablas, claves, restricciones, índices y perfiles.
-- `database/02_consultas_demostracion.sql`: semestres, detalle, dependencias, resumen y controles de horario/eliminación.
+- `database/02_consultas_demostracion.sql`: semestres, detalle, dependencias, horarios, cursos habilitados y pendientes, vacantes y trica.
 - `database/03_diccionario_datos.md`: descripción de tablas y reglas de integridad.
+- `database/04_dbdiagram.dbml`: diagrama relacional importable en dbdiagram.io.
+
+Las bases existentes se migran de manera incremental al iniciar el backend. Primero se copian los valores heredados de `estudiante.prematricula`, `periodo_academico.matricula_accesos` y `perfil.permisos` hacia las tablas normalizadas. Las columnas antiguas se conservan temporalmente únicamente en bases migradas para permitir un despliegue sin interrupciones, pero la aplicación deja de leerlas y escribirlas.
 
 Solo existen dos archivos SQL: el esquema consolidado y las consultas demostrativas. Para bases existentes, SQLAlchemy crea de forma no destructiva las tablas de seguridad al iniciar el backend.
 

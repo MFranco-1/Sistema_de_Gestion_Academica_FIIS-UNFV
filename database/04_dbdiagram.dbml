@@ -1,0 +1,227 @@
+Project gestion_academica_fiis {
+  database_type: 'PostgreSQL'
+  Note: 'Modelo normalizado del Sistema de Gestión Académica FIIS–UNFV'
+}
+
+Table facultad {
+  cod_fac integer [pk]
+  den_fac varchar(120) [not null, unique]
+}
+
+Table escuela {
+  cod_fac integer [pk]
+  cod_esc integer [pk]
+  den_escuela varchar(120) [not null]
+}
+
+Table docente {
+  cod_fac integer [pk]
+  cod_esc integer [pk]
+  cod_docente varchar(12) [pk]
+  apellidos_nombres varchar(160) [not null]
+  categoria varchar(30) [not null]
+  dedicacion varchar(30) [not null]
+  departamento varchar(100) [not null]
+  fuente varchar(120) [not null]
+}
+
+Table plan_estudio {
+  cod_fac integer [pk]
+  cod_esc integer [pk]
+  corr_pe integer [pk]
+  den_plan varchar(120) [not null]
+  anio_plan integer [not null]
+  fecha_vigencia date [not null]
+  fecha_baja date
+  vigente boolean [not null]
+}
+
+Table curso {
+  cod_fac integer [pk]
+  cod_esc integer [pk]
+  corr_pe integer [pk]
+  cod_curso varchar(20) [pk]
+  den_curso varchar(160) [not null]
+  semestre integer [not null]
+  ht integer [not null]
+  hp integer [not null]
+  cred integer [not null]
+  tipo_curso varchar(20) [not null]
+}
+
+Table curso_prerequisito {
+  cod_fac integer [pk]
+  cod_esc integer [pk]
+  corr_pe integer [pk]
+  cod_curso varchar(20) [pk]
+  cod_curso_prerequisito varchar(20) [pk]
+}
+
+Table periodo_academico {
+  cod_periodo varchar(10) [pk]
+  den_periodo varchar(80) [not null, unique]
+  anio integer [not null]
+  tipo_periodo varchar(10) [not null]
+  fecha_inicio date [not null]
+  fecha_fin date [not null]
+  activo boolean [not null]
+}
+
+Table periodo_matricula_acceso {
+  cod_periodo varchar(10) [pk]
+  cod_fac integer [pk]
+  cod_esc integer [pk]
+  corr_pe integer [pk]
+  ciclo integer [pk]
+  fase varchar(10) [not null]
+}
+
+Table horario_cabecera {
+  id_horario integer [pk, increment]
+  cod_periodo varchar(10) [not null]
+  cod_fac integer [not null]
+  cod_esc integer [not null]
+  corr_pe integer [not null]
+  fecha_creacion date [not null]
+}
+
+Table horario_detalle {
+  id_horario integer [pk]
+  semestre_corr integer [pk]
+  semestre_desc varchar(30) [not null]
+}
+
+Table horario_curso {
+  id_horario integer [pk]
+  semestre_corr integer [pk]
+  cod_curso varchar(20) [pk]
+  cod_seccion varchar(10) [pk]
+  tipo_sesion varchar(1) [pk]
+  dia_semana varchar(10) [pk]
+  hora_inicio time [pk]
+  cod_fac integer [not null]
+  cod_esc integer [not null]
+  corr_pe integer [not null]
+  hora_fin time [not null]
+  aula varchar(30) [not null]
+}
+
+Table estudiante {
+  cod_estudiante varchar(10) [pk]
+  dni varchar(8) [not null, unique]
+  apellidos_nombres varchar(160) [not null]
+  correo varchar(120) [not null, unique]
+  cod_fac integer [not null]
+  cod_esc integer [not null]
+  corr_pe integer [not null]
+  ciclo_actual integer [not null]
+  estado varchar(12) [not null]
+}
+
+Table oferta_curso {
+  id_oferta integer [pk, increment]
+  cod_periodo varchar(10) [not null]
+  cod_fac integer [not null]
+  cod_esc integer [not null]
+  corr_pe integer [not null]
+  cod_curso varchar(20) [not null]
+  cod_seccion varchar(10) [not null]
+  vacantes integer [not null]
+  activo boolean [not null]
+  cod_docente varchar(12)
+}
+
+Table prematricula {
+  id_prematricula integer [pk, increment]
+  cod_estudiante varchar(10) [not null, unique]
+  cod_periodo varchar(10) [not null]
+}
+
+Table prematricula_detalle {
+  id_prematricula integer [pk]
+  id_oferta integer [pk]
+}
+
+Table matricula {
+  id_matricula integer [pk, increment]
+  cod_estudiante varchar(10) [not null]
+  cod_periodo varchar(10) [not null]
+  cod_fac integer [not null]
+  cod_esc integer [not null]
+  corr_pe integer [not null]
+  ciclo_matricula integer [not null]
+  fecha_matricula date [not null]
+  estado varchar(12) [not null]
+}
+
+Table matricula_detalle {
+  id_matricula integer [pk]
+  id_oferta integer [pk]
+  nota_practicas integer
+  nota_parcial integer
+  nota_examen_final integer
+  nota_final integer
+  resultado varchar(12) [not null]
+}
+
+Table permiso {
+  codigo varchar(40) [pk]
+  nombre varchar(100) [not null]
+}
+
+Table perfil {
+  id_perfil integer [pk, increment]
+  codigo varchar(20) [not null, unique]
+  nombre varchar(50) [not null, unique]
+}
+
+Table perfil_permiso {
+  id_perfil integer [pk]
+  cod_permiso varchar(40) [pk]
+}
+
+Table usuario {
+  id_usuario integer [pk, increment]
+  nombre_usuario varchar(60) [not null, unique]
+  clave_hash varchar(255) [not null]
+  nombre_mostrar varchar(160) [not null]
+  cod_estudiante varchar(10) [unique]
+  activo boolean [not null]
+}
+
+Table usuario_perfil {
+  id_usuario integer [pk]
+  id_perfil integer [pk]
+}
+
+Ref: escuela.cod_fac > facultad.cod_fac
+Ref: docente.(cod_fac, cod_esc) > escuela.(cod_fac, cod_esc)
+Ref: plan_estudio.(cod_fac, cod_esc) > escuela.(cod_fac, cod_esc)
+Ref: curso.(cod_fac, cod_esc, corr_pe) > plan_estudio.(cod_fac, cod_esc, corr_pe)
+Ref: curso_prerequisito.(cod_fac, cod_esc, corr_pe, cod_curso) > curso.(cod_fac, cod_esc, corr_pe, cod_curso)
+Ref: curso_prerequisito.(cod_fac, cod_esc, corr_pe, cod_curso_prerequisito) > curso.(cod_fac, cod_esc, corr_pe, cod_curso)
+Ref: periodo_matricula_acceso.cod_periodo > periodo_academico.cod_periodo
+Ref: periodo_matricula_acceso.(cod_fac, cod_esc, corr_pe) > plan_estudio.(cod_fac, cod_esc, corr_pe)
+Ref: horario_cabecera.cod_periodo > periodo_academico.cod_periodo
+Ref: horario_cabecera.(cod_fac, cod_esc, corr_pe) > plan_estudio.(cod_fac, cod_esc, corr_pe)
+Ref: horario_detalle.id_horario > horario_cabecera.id_horario
+Ref: horario_curso.(id_horario, semestre_corr) > horario_detalle.(id_horario, semestre_corr)
+Ref: horario_curso.(cod_fac, cod_esc, corr_pe, cod_curso) > curso.(cod_fac, cod_esc, corr_pe, cod_curso)
+Ref: estudiante.(cod_fac, cod_esc, corr_pe) > plan_estudio.(cod_fac, cod_esc, corr_pe)
+Ref: oferta_curso.cod_periodo > periodo_academico.cod_periodo
+Ref: oferta_curso.(cod_fac, cod_esc, corr_pe, cod_curso) > curso.(cod_fac, cod_esc, corr_pe, cod_curso)
+Ref: oferta_curso.(cod_fac, cod_esc, cod_docente) > docente.(cod_fac, cod_esc, cod_docente)
+Ref: prematricula.cod_estudiante > estudiante.cod_estudiante
+Ref: prematricula.cod_periodo > periodo_academico.cod_periodo
+Ref: prematricula_detalle.id_prematricula > prematricula.id_prematricula
+Ref: prematricula_detalle.id_oferta > oferta_curso.id_oferta
+Ref: matricula.cod_estudiante > estudiante.cod_estudiante
+Ref: matricula.cod_periodo > periodo_academico.cod_periodo
+Ref: matricula.(cod_fac, cod_esc, corr_pe) > plan_estudio.(cod_fac, cod_esc, corr_pe)
+Ref: matricula_detalle.id_matricula > matricula.id_matricula
+Ref: matricula_detalle.id_oferta > oferta_curso.id_oferta
+Ref: perfil_permiso.id_perfil > perfil.id_perfil
+Ref: perfil_permiso.cod_permiso > permiso.codigo
+Ref: usuario.cod_estudiante > estudiante.cod_estudiante
+Ref: usuario_perfil.id_usuario > usuario.id_usuario
+Ref: usuario_perfil.id_perfil > perfil.id_perfil

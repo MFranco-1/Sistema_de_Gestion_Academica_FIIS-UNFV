@@ -104,7 +104,6 @@ class PeriodoAcademico(BaseModel):
     fecha_inicio: date
     fecha_fin: date
     activo: bool
-    matricula_accesos: str = ""
     class Config:
         from_attributes = True
 
