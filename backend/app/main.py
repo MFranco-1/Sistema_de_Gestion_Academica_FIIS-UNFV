@@ -26,7 +26,7 @@ cors_origins.extend(
 app = FastAPI(
     title="Sistema de Gestión Académica FIIS",
     description="Consulta de planes, prerrequisitos, programación académica y plana docente.",
-    version="3.2.0",
+    version="3.2.1",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -39,7 +39,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.2.0"}
+    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.2.1"}
 
 
 def _sesion_dict(usuario, perfil_activo: str):

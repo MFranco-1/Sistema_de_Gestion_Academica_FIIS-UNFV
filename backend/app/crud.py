@@ -1486,6 +1486,29 @@ def crear_matricula(
         cod_estudiante=datos.cod_estudiante, cod_periodo=datos.cod_periodo,
     ).first():
         raise HTTPException(status_code=409, detail="El estudiante ya tiene una matrícula en este período.")
+    periodo_solicitado = db.query(models.PeriodoAcademico).filter_by(
+        cod_periodo=datos.cod_periodo,
+    ).first()
+    if not periodo_solicitado:
+        raise HTTPException(status_code=404, detail="El período académico no existe.")
+    ultimo_periodo = (
+        db.query(models.PeriodoAcademico)
+        .join(models.Matricula, models.Matricula.cod_periodo == models.PeriodoAcademico.cod_periodo)
+        .filter(
+            models.Matricula.cod_estudiante == datos.cod_estudiante,
+            models.Matricula.estado != "ANULADA",
+        )
+        .order_by(models.PeriodoAcademico.fecha_inicio.desc())
+        .first()
+    )
+    if ultimo_periodo and periodo_solicitado.fecha_inicio <= ultimo_periodo.fecha_inicio:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"No se puede registrar una matrícula anterior a {ultimo_periodo.den_periodo}. "
+                "Seleccione el siguiente período académico correspondiente."
+            ),
+        )
     if len(datos.ofertas) != len(set(datos.ofertas)):
         raise HTTPException(status_code=422, detail="No se puede seleccionar dos veces la misma oferta.")
 

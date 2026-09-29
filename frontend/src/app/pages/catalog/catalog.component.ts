@@ -45,8 +45,7 @@ export class CatalogComponent implements OnInit {
       this.selectedPeriodo = activo?.cod_periodo ?? data[0]?.cod_periodo;
       this.periodosControl = data
         .filter(p => !activo || p.fecha_inicio >= activo.fecha_inicio)
-        .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio))
-        .slice(0, 4);
+        .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
       this.periodoControl = activo?.cod_periodo ?? this.periodosControl[0]?.cod_periodo ?? '';
       this.cargarControlMatricula();
     });

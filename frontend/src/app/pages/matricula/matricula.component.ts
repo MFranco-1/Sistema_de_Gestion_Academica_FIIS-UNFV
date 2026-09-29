@@ -89,18 +89,20 @@ export class MatriculaComponent implements OnInit {
   private actualizarPeriodosMatricula(): void {
     if (!this.estudiante || !this.periodosBase.length || !this.historialCargado) return;
     const tipoCorrespondiente = this.estudiante.ciclo_actual % 2 ? 'I' : 'II';
-    const activo = this.periodosBase.find(periodo => periodo.activo);
-    const matriculaActiva = activo
-      ? this.matriculas.find(matricula => matricula.cod_periodo === activo.cod_periodo)
-      : undefined;
     const regulares = this.periodosBase
       .filter(periodo => periodo.tipo_periodo === tipoCorrespondiente)
       .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
-    const periodoActivoCompatible = matriculaActiva?.estado === 'CERRADA'
-      ? undefined
-      : regulares.find(periodo => periodo.activo);
-    const correspondiente = periodoActivoCompatible
-      || (activo ? regulares.find(periodo => periodo.fecha_inicio > activo.fecha_inicio) : undefined)
+    const historialOrdenado = this.matriculas
+      .map(matricula => ({ matricula, periodo: this.periodosBase.find(periodo => periodo.cod_periodo === matricula.cod_periodo) }))
+      .filter((item): item is { matricula: MatriculaResumen; periodo: PeriodoAcademico } => !!item.periodo)
+      .sort((a, b) => b.periodo.fecha_inicio.localeCompare(a.periodo.fecha_inicio));
+    const ultimoRegistro = historialOrdenado[0];
+    const periodoVigente = ultimoRegistro?.matricula.estado === 'REGISTRADA'
+      && ultimoRegistro.matricula.ciclo_matricula === this.estudiante.ciclo_actual
+      ? ultimoRegistro.periodo : undefined;
+    const correspondiente = periodoVigente
+      || (ultimoRegistro ? regulares.find(periodo => periodo.fecha_inicio > ultimoRegistro.periodo.fecha_inicio) : undefined)
+      || regulares.find(periodo => periodo.activo)
       || regulares.find(periodo => periodo.fecha_fin >= new Date().toISOString().slice(0, 10))
       || regulares[regulares.length - 1];
     const veranoActivo = this.periodosBase.find(periodo => periodo.activo && periodo.tipo_periodo === 'VERANO');
@@ -371,9 +373,13 @@ export class MatriculaComponent implements OnInit {
     return this.ranking?.estudiantes.find(item => item.cod_estudiante === this.estudiante?.cod_estudiante);
   }
   get matriculaVigente(): MatriculaResumen | undefined {
-    return this.matriculas.find(item =>
-      item.estado === 'REGISTRADA' && item.ciclo_matricula === this.estudiante?.ciclo_actual
-    );
+    const ultima = [...this.matriculas].sort((a, b) => {
+      const fechaA = this.periodosBase.find(periodo => periodo.cod_periodo === a.cod_periodo)?.fecha_inicio || '';
+      const fechaB = this.periodosBase.find(periodo => periodo.cod_periodo === b.cod_periodo)?.fecha_inicio || '';
+      return fechaB.localeCompare(fechaA);
+    })[0];
+    return ultima?.estado === 'REGISTRADA' && ultima.ciclo_matricula === this.estudiante?.ciclo_actual
+      ? ultima : undefined;
   }
   get puedeRegistrar(): boolean {
     return !!this.accesoMatricula?.habilitado;
