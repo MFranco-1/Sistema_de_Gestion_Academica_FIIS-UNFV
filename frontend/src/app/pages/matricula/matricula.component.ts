@@ -101,6 +101,7 @@ export class MatriculaComponent implements OnInit {
       ? ultimoRegistro.periodo : undefined;
     const correspondiente = periodoVigente
       || (ultimoRegistro ? regulares.find(periodo => periodo.fecha_inicio > ultimoRegistro.periodo.fecha_inicio) : undefined)
+      || (!ultimoRegistro ? this.periodoEsperadoSinHistorial(regulares) : undefined)
       || regulares.find(periodo => periodo.activo)
       || regulares.find(periodo => periodo.fecha_fin >= new Date().toISOString().slice(0, 10))
       || regulares[regulares.length - 1];
@@ -113,6 +114,12 @@ export class MatriculaComponent implements OnInit {
       this.periodoSeleccionado = this.periodos[0]?.cod_periodo || '';
     }
     this.cargarOfertas();
+  }
+
+  private periodoEsperadoSinHistorial(regulares: PeriodoAcademico[]): PeriodoAcademico | undefined {
+    if (!this.estudiante) return undefined;
+    const anioEsperado = this.estudiante.anio_ingreso + Math.floor((this.estudiante.ciclo_actual - 1) / 2);
+    return regulares.find(periodo => periodo.anio === anioEsperado);
   }
 
   private cargarEstadoMatricula(): void {

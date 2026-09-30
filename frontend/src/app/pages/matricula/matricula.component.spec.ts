@@ -56,6 +56,22 @@ describe('MatriculaComponent', () => {
     expect([...component.seleccionadas]).toEqual([2]);
   });
 
+  it('ubica a un alumno sin historial en el periodo correspondiente a su ingreso', () => {
+    component.estudiante!.ciclo_actual = 1;
+    (component as any).periodosBase = [
+      { cod_periodo: '2024-I', den_periodo: 'Semestre académico 2024-I', anio: 2024, tipo_periodo: 'I', fecha_inicio: '2024-03-18', fecha_fin: '2024-07-19', activo: false },
+      { cod_periodo: '2026-II', den_periodo: 'Semestre académico 2026-II', anio: 2026, tipo_periodo: 'II', fecha_inicio: '2026-08-17', fecha_fin: '2026-12-18', activo: true },
+      { cod_periodo: '2027-I', den_periodo: 'Semestre académico 2027-I', anio: 2027, tipo_periodo: 'I', fecha_inicio: '2027-03-15', fecha_fin: '2027-07-16', activo: false }
+    ];
+    (component as any).historialCargado = true;
+    spyOn(component, 'cargarOfertas');
+
+    (component as any).actualizarPeriodosMatricula();
+
+    expect(component.periodoSeleccionado).toBe('2024-I');
+    expect(component.periodos.map(periodo => periodo.cod_periodo)).toContain('2024-I');
+  });
+
   it('filtra los cursos al presionar una sección', () => {
     component.ofertas = [oferta(1, 'P19-31', 'A'), oferta(2, 'P19-32', 'B')];
 
