@@ -1,6 +1,5 @@
 import { Component, ElementRef, OnInit, ViewChild } from '@angular/core';
 import { HttpErrorResponse } from '@angular/common/http';
-import { jsPDF } from 'jspdf';
 import { ApiService, BloqueHorario, Estudiante, MatriculaAccesoEstado, MatriculaResumen, OfertaCurso, PeriodoAcademico, RankingCiclo, RankingEstudiante } from '../../services/api.service';
 import { AuthService } from '../../services/auth.service';
 
@@ -225,7 +224,8 @@ export class MatriculaComponent implements OnInit {
     });
   }
 
-  private async crearDocumentoPdf(matricula: MatriculaResumen, firma: string): Promise<jsPDF> {
+  private async crearDocumentoPdf(matricula: MatriculaResumen, firma: string): Promise<import('jspdf').jsPDF> {
+    const { jsPDF } = await import('jspdf');
     const estudiante = this.estudiante!;
     const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
     const maroon: [number, number, number] = [132, 29, 42];
