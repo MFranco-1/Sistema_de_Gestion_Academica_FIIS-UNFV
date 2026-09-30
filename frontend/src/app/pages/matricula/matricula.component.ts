@@ -105,8 +105,15 @@ export class MatriculaComponent implements OnInit {
       || regulares.find(periodo => periodo.activo)
       || regulares.find(periodo => periodo.fecha_fin >= new Date().toISOString().slice(0, 10))
       || regulares[regulares.length - 1];
+    const veranoRecuperacion = ultimoRegistro && this.tieneCursosPendientes()
+      ? this.periodosBase
+          .filter(periodo => periodo.tipo_periodo === 'VERANO'
+            && periodo.fecha_inicio > ultimoRegistro.periodo.fecha_inicio
+            && (!correspondiente || periodo.fecha_inicio < correspondiente.fecha_inicio))
+          .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio))[0]
+      : undefined;
     const veranoActivo = this.periodosBase.find(periodo => periodo.activo && periodo.tipo_periodo === 'VERANO');
-    this.periodos = [veranoActivo, correspondiente]
+    this.periodos = [veranoRecuperacion || veranoActivo, correspondiente]
       .filter((periodo, indice, lista): periodo is PeriodoAcademico =>
         !!periodo && lista.findIndex(item => item?.cod_periodo === periodo.cod_periodo) === indice
       );
@@ -120,6 +127,15 @@ export class MatriculaComponent implements OnInit {
     if (!this.estudiante) return undefined;
     const anioEsperado = this.estudiante.anio_ingreso + Math.floor((this.estudiante.ciclo_actual - 1) / 2);
     return regulares.find(periodo => periodo.anio === anioEsperado);
+  }
+
+  private tieneCursosPendientes(): boolean {
+    const aprobados = new Set(this.matriculas.flatMap(matricula =>
+      matricula.detalles.filter(detalle => detalle.resultado === 'APROBADO').map(detalle => detalle.cod_curso)
+    ));
+    return this.matriculas.some(matricula =>
+      matricula.detalles.some(detalle => detalle.resultado === 'DESAPROBADO' && !aprobados.has(detalle.cod_curso))
+    );
   }
 
   private cargarEstadoMatricula(): void {

@@ -72,6 +72,32 @@ describe('MatriculaComponent', () => {
     expect(component.periodos.map(periodo => periodo.cod_periodo)).toContain('2024-I');
   });
 
+  it('ofrece el verano siguiente cuando queda un curso desaprobado', () => {
+    component.estudiante!.ciclo_actual = 3;
+    (component as any).periodosBase = [
+      { cod_periodo: '2024-II', den_periodo: 'Semestre académico 2024-II', anio: 2024, tipo_periodo: 'II', fecha_inicio: '2024-08-19', fecha_fin: '2024-12-21', activo: false },
+      { cod_periodo: '2025-V', den_periodo: 'Ciclo de verano 2025', anio: 2025, tipo_periodo: 'VERANO', fecha_inicio: '2025-01-06', fecha_fin: '2025-02-28', activo: false },
+      { cod_periodo: '2025-I', den_periodo: 'Semestre académico 2025-I', anio: 2025, tipo_periodo: 'I', fecha_inicio: '2025-03-17', fecha_fin: '2025-07-19', activo: false }
+    ];
+    component.matriculas = [{
+      id_matricula: 2, cod_estudiante: '2024035774', cod_periodo: '2024-II', ciclo_matricula: 2,
+      fecha_matricula: '2024-08-19', estado: 'CERRADA', total_creditos: 22,
+      constancia_disponible: false,
+      detalles: [{
+        id_matricula: 2, id_oferta: 20, cod_periodo: '2024-II', cod_curso: 'P19-09',
+        den_curso: 'Inglés II', semestre: 2, cod_seccion: 'A', docente_nombre: 'Docente',
+        cred: 1, nota_final: 8, resultado: 'DESAPROBADO'
+      }]
+    }];
+    (component as any).historialCargado = true;
+    spyOn(component, 'cargarOfertas');
+
+    (component as any).actualizarPeriodosMatricula();
+
+    expect(component.periodos.map(periodo => periodo.cod_periodo)).toEqual(['2025-V', '2025-I']);
+    expect(component.periodoSeleccionado).toBe('2025-V');
+  });
+
   it('filtra los cursos al presionar una sección', () => {
     component.ofertas = [oferta(1, 'P19-31', 'A'), oferta(2, 'P19-32', 'B')];
 
