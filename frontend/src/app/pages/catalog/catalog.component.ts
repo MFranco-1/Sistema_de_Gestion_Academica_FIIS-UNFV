@@ -43,8 +43,7 @@ export class CatalogComponent implements OnInit {
       const activo = data.find(p => p.activo);
       this.periodos = data.filter(p => p.activo);
       this.selectedPeriodo = activo?.cod_periodo ?? data[0]?.cod_periodo;
-      this.periodosControl = data
-        .filter(p => !activo || p.fecha_inicio >= activo.fecha_inicio)
+      this.periodosControl = [...data]
         .sort((a, b) => a.fecha_inicio.localeCompare(b.fecha_inicio));
       this.periodoControl = activo?.cod_periodo ?? this.periodosControl[0]?.cod_periodo ?? '';
       this.cargarControlMatricula();
