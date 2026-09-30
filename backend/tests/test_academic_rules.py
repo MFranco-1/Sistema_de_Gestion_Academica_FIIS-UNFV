@@ -14,6 +14,7 @@ from app.crud import (
     _ventana_suspension_trica,
 )
 from app.migrations import (
+    _ensure_schedule_permission,
     _migrate_enrollment_access,
     _migrate_pre_enrollments,
     _migrate_profile_permissions,
@@ -162,6 +163,19 @@ class LegacyDataMigrationTest(unittest.TestCase):
         self.assertEqual(permissions, ["GESTION_MATRICULAS", "PLANA_DOCENTE"])
         self.assertEqual(tuple(access), (2, 3, "TERCIO"))
         self.assertEqual(tuple(guide), ("2024000001", "2027-I", 10))
+
+    def test_schedule_permission_preserves_existing_maintenance_access(self):
+        with self.engine.begin() as connection:
+            connection.execute(text("INSERT INTO permiso VALUES ('MANTENIMIENTO_ACADEMICO', 'Mantenimiento')"))
+            connection.execute(text("INSERT INTO perfil VALUES (2, '')"))
+            connection.execute(text("INSERT INTO perfil_permiso VALUES (2, 'MANTENIMIENTO_ACADEMICO')"))
+            _ensure_schedule_permission(connection)
+            _ensure_schedule_permission(connection)
+            permissions = connection.execute(text("""
+                SELECT cod_permiso FROM perfil_permiso
+                WHERE id_perfil = 2 ORDER BY cod_permiso
+            """)).scalars().all()
+        self.assertEqual(permissions, ["GESTION_HORARIOS", "MANTENIMIENTO_ACADEMICO"])
 
 
 if __name__ == "__main__":

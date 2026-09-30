@@ -26,7 +26,7 @@ cors_origins.extend(
 app = FastAPI(
     title="Sistema de Gestión Académica FIIS",
     description="Consulta de planes, prerrequisitos, programación académica y plana docente.",
-    version="3.2.1",
+    version="3.2.2",
 )
 app.add_middleware(
     CORSMiddleware,
@@ -39,7 +39,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.2.1"}
+    return {"message": "API de Gestión Académica FIIS operativa", "version": "3.2.2"}
 
 
 def _sesion_dict(usuario, perfil_activo: str):
@@ -306,27 +306,27 @@ def delete_prerequisito(
 
 
 @app.post("/sesiones/", response_model=schemas.Mensaje, status_code=status.HTTP_201_CREATED)
-def create_sesion(datos: schemas.SesionCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
+def create_sesion(datos: schemas.SesionCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_HORARIOS"))):
     return crud.crear_sesion(db, datos)
 
 
 @app.put("/sesiones/", response_model=schemas.Mensaje)
-def update_sesion(datos: schemas.SesionEdicion, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
+def update_sesion(datos: schemas.SesionEdicion, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_HORARIOS"))):
     return crud.editar_sesion(db, datos)
 
 
 @app.put("/horarios/cursos", response_model=schemas.Mensaje)
-def upsert_programacion_curso(datos: schemas.ProgramacionCursoUpsert, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
+def upsert_programacion_curso(datos: schemas.ProgramacionCursoUpsert, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_HORARIOS"))):
     return crud.guardar_programacion_curso(db, datos)
 
 
 @app.post("/ofertas/secciones", response_model=schemas.Mensaje, status_code=status.HTTP_201_CREATED)
-def create_oferta_seccion(datos: schemas.OfertaSeccionCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("MANTENIMIENTO_ACADEMICO"))):
+def create_oferta_seccion(datos: schemas.OfertaSeccionCreate, db: Session = Depends(get_db), _=Depends(auth.require_permission("GESTION_HORARIOS"))):
     return crud.abrir_seccion(db, datos)
 
 
 @app.get("/ofertas/", response_model=List[schemas.OfertaAdministracion])
-def read_ofertas_administracion(cod_periodo: str, corr_pe: int, semestre: int | None = Query(default=None, ge=1, le=10), db: Session = Depends(get_db), _=Depends(auth.require_any_permission("MANTENIMIENTO_ACADEMICO", "PLANA_DOCENTE"))):
+def read_ofertas_administracion(cod_periodo: str, corr_pe: int, semestre: int | None = Query(default=None, ge=1, le=10), db: Session = Depends(get_db), _=Depends(auth.require_any_permission("GESTION_HORARIOS", "PLANA_DOCENTE"))):
     return crud.get_ofertas_administracion(db, cod_periodo, corr_pe, semestre)
 
 

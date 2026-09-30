@@ -37,6 +37,7 @@ def main() -> None:
 
         admin = db.query(models.Perfil).filter_by(codigo=auth.PERFIL_ADMIN).one()
         assert "GESTION_MATRICULAS" in auth.codigos_permisos(admin)
+        assert "GESTION_HORARIOS" in auth.codigos_permisos(admin)
         authenticated, active_profile = crud.autenticar(db, "admin", "Admin123*")
         assert authenticated.id_usuario and active_profile == auth.PERFIL_ADMIN
 

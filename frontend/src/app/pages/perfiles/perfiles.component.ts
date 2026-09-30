@@ -9,7 +9,8 @@ export class PerfilesComponent implements OnInit {
   readonly permisosDisponibles: PermisoOpcion[] = [
     { codigo: 'GESTION_CURRICULAR', nombre: 'Gestión curricular', descripcion: 'Consultar planes, cursos, prerrequisitos y programación.' },
     { codigo: 'PLANA_DOCENTE', nombre: 'Plana docente', descripcion: 'Consultar la información de docentes.' },
-    { codigo: 'MANTENIMIENTO_ACADEMICO', nombre: 'Mantenimiento académico', descripcion: 'Crear y editar cursos, prerrequisitos y horarios.' },
+    { codigo: 'GESTION_HORARIOS', nombre: 'Gestión de horarios', descripcion: 'Programar cursos, modificar horarios y abrir secciones.' },
+    { codigo: 'MANTENIMIENTO_ACADEMICO', nombre: 'Mantenimiento académico', descripcion: 'Crear y editar cursos y prerrequisitos.' },
     { codigo: 'GESTION_ESTUDIANTES', nombre: 'Gestión de estudiantes', descripcion: 'Registrar, editar y retirar estudiantes.' },
     { codigo: 'GESTION_USUARIOS', nombre: 'Gestión de usuarios', descripcion: 'Administrar cuentas y asignar perfiles.' },
     { codigo: 'GESTION_PERFILES', nombre: 'Gestión de perfiles', descripcion: 'Crear perfiles y configurar sus permisos.' },

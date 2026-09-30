@@ -18,13 +18,15 @@ from app.database import get_db
 PERFIL_ADMIN = "ADMINISTRADOR"
 PERFIL_ESTUDIANTE = "ESTUDIANTE"
 PERMISOS_VALIDOS = {
-    "GESTION_CURRICULAR", "PLANA_DOCENTE", "MANTENIMIENTO_ACADEMICO",
+    "GESTION_CURRICULAR", "PLANA_DOCENTE", "GESTION_HORARIOS",
+    "MANTENIMIENTO_ACADEMICO",
     "GESTION_ESTUDIANTES", "GESTION_USUARIOS", "GESTION_PERFILES",
     "MATRICULA_PROPIA", "GESTION_MATRICULAS",
 }
 NOMBRES_PERMISOS = {
     "GESTION_CURRICULAR": "Gestión curricular",
     "PLANA_DOCENTE": "Plana docente",
+    "GESTION_HORARIOS": "Gestión de horarios",
     "MANTENIMIENTO_ACADEMICO": "Mantenimiento académico",
     "GESTION_ESTUDIANTES": "Gestión de estudiantes",
     "GESTION_USUARIOS": "Gestión de usuarios",
@@ -183,7 +185,7 @@ def ensure_security_data(db: Session) -> None:
     defaults = (
         (PERFIL_ADMIN, "Administrador", PERMISOS_ADMIN),
         (PERFIL_ESTUDIANTE, "Estudiante", PERMISOS_ESTUDIANTE),
-        ("JEFE_DEPARTAMENTO", "Jefe de departamento", ["MANTENIMIENTO_ACADEMICO", "PLANA_DOCENTE"]),
+        ("JEFE_DEPARTAMENTO", "Jefe de departamento", ["GESTION_HORARIOS", "MANTENIMIENTO_ACADEMICO", "PLANA_DOCENTE"]),
         ("DIRECTOR_ESCUELA", "Director de escuela", ["GESTION_CURRICULAR", "PLANA_DOCENTE"]),
         ("ADMINISTRACION", "Administración", ["GESTION_ESTUDIANTES", "GESTION_USUARIOS", "GESTION_MATRICULAS"]),
     )

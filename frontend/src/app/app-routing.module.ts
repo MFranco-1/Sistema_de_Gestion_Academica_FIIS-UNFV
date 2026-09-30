@@ -18,7 +18,7 @@ const routes: Routes = [
   { path: 'catalog', component: CatalogComponent, canActivate: [AuthGuard, AdminGuard], data: { permiso: 'GESTION_CURRICULAR' } },
   { path: 'docentes', component: DocentesComponent, canActivate: [AuthGuard, AdminGuard], data: { permiso: 'PLANA_DOCENTE' } },
   { path: 'mantenimiento', component: MantenimientoComponent, canActivate: [AuthGuard, AdminGuard], data: { permisos: ['MANTENIMIENTO_ACADEMICO', 'GESTION_ESTUDIANTES'] } },
-  { path: 'admin/horarios', component: HorariosComponent, canActivate: [AuthGuard, AdminGuard], data: { permisos: ['MANTENIMIENTO_ACADEMICO', 'PLANA_DOCENTE'] } },
+  { path: 'admin/horarios', component: HorariosComponent, canActivate: [AuthGuard, AdminGuard], data: { permisos: ['GESTION_HORARIOS', 'PLANA_DOCENTE'] } },
   { path: 'admin/usuarios', component: UsuariosComponent, canActivate: [AuthGuard, AdminGuard], data: { permiso: 'GESTION_USUARIOS' } },
   { path: 'admin/perfiles', component: PerfilesComponent, canActivate: [AuthGuard, AdminGuard], data: { permiso: 'GESTION_PERFILES' } },
   { path: 'admin/matriculas', component: GestionMatriculasComponent, canActivate: [AuthGuard, AdminGuard], data: { permiso: 'GESTION_MATRICULAS' } },

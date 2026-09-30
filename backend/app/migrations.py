@@ -7,6 +7,7 @@ from sqlalchemy.engine import Engine
 PERMISSION_NAMES = {
     "GESTION_CURRICULAR": "Gestión curricular",
     "PLANA_DOCENTE": "Plana docente",
+    "GESTION_HORARIOS": "Gestión de horarios",
     "MANTENIMIENTO_ACADEMICO": "Mantenimiento académico",
     "GESTION_ESTUDIANTES": "Gestión de estudiantes",
     "GESTION_USUARIOS": "Gestión de usuarios",
@@ -71,6 +72,22 @@ def _migrate_profile_permissions(connection) -> None:
                     VALUES (:id_perfil, :codigo)
                 """), {"id_perfil": row["id_perfil"], "codigo": code})
     _mark_legacy_migration(connection, "perfil", "permisos")
+
+
+def _ensure_schedule_permission(connection) -> None:
+    """Separa horarios sin quitar acceso a perfiles que ya lo administraban."""
+    _insert_permission(connection, "GESTION_HORARIOS")
+    connection.execute(text("""
+        INSERT INTO perfil_permiso (id_perfil, cod_permiso)
+        SELECT anterior.id_perfil, 'GESTION_HORARIOS'
+        FROM perfil_permiso AS anterior
+        WHERE anterior.cod_permiso = 'MANTENIMIENTO_ACADEMICO'
+          AND NOT EXISTS (
+              SELECT 1 FROM perfil_permiso AS nuevo
+              WHERE nuevo.id_perfil = anterior.id_perfil
+                AND nuevo.cod_permiso = 'GESTION_HORARIOS'
+          )
+    """))
 
 
 def _migrate_enrollment_access(connection) -> None:
@@ -235,6 +252,7 @@ def run_migrations(engine: Engine) -> None:
             )
         _ensure_teacher_foreign_key(connection)
         _migrate_profile_permissions(connection)
+        _ensure_schedule_permission(connection)
         _migrate_enrollment_access(connection)
         _migrate_pre_enrollments(connection)
         connection.exec_driver_sql(

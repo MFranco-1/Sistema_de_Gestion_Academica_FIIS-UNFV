@@ -61,7 +61,7 @@ export class AuthService {
   rutaInicial(): string {
     if (this.puede('MATRICULA_PROPIA')) return '/matricula';
     if (this.puede('GESTION_CURRICULAR')) return '/catalog';
-    if (this.puedeAlguno('MANTENIMIENTO_ACADEMICO', 'PLANA_DOCENTE')) return '/admin/horarios';
+    if (this.puedeAlguno('GESTION_HORARIOS', 'PLANA_DOCENTE')) return '/admin/horarios';
     if (this.puede('GESTION_MATRICULAS')) return '/admin/matriculas';
     if (this.puede('GESTION_ESTUDIANTES')) return '/mantenimiento';
     if (this.puede('GESTION_USUARIOS')) return '/admin/usuarios';
